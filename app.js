@@ -1,4 +1,4 @@
-import {bestGrade,hint,nextInterval,parseBulk,PASS,CLOSE} from './grade.js';
+import {bestGrade,hint,nextInterval,parseBulk,parseShared,PASS,CLOSE} from './grade.js';
 const STATIC_ONLY=window.STUDY_CONFIG?.staticOnly===true;
 const API_BASE=(window.STUDY_CONFIG?.apiBase||'').replace(/\/$/,'');
 const apiURL=path=>API_BASE+path;
@@ -411,7 +411,11 @@ async function startAccount(){
  catch{/* Existing offline notebook remains usable when the server is unavailable. */}
  accountLoading=false;if(pendingInvite)page='together';render();if(currentUser&&page==='together')refreshSocial();
 }
+// Text arriving from an iOS Shortcut (#add=…) or the Android share sheet (?share_text=…).
+const incomingShare=(()=>{const q=new URLSearchParams(location.search),h=new URLSearchParams(location.hash.slice(1));const text=h.get('add')||[q.get('share_title'),q.get('share_text')].filter(Boolean).join('\n');if(!text)return null;history.replaceState(null,'',location.pathname+(h.get('invite')?`#invite=${encodeURIComponent(h.get('invite'))}`:''));return parseShared(text)})();
+if(incomingShare){page='notes';}
 render();startAccount();
+if(incomingShare){openAdd(incomingShare.english);$('#meaning').value=incomingShare.meaning;toast(incomingShare.english&&incomingShare.meaning?'캡처에서 표현을 가져왔어요. 확인하고 저장해 주세요.':'일부만 읽었어요. 비어 있는 칸을 채워 주세요.')}
 
 document.addEventListener('input',e=>{
  if(e.target.id==='quick-english')quickDraft.english=e.target.value;

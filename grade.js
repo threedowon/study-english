@@ -113,3 +113,18 @@ export function parseBulk(text) {
   }
   return { items, skipped };
 }
+
+const UI_WORDS = /^(try again|try|again|great!?|good!?|perfect!?|원어민|나|연습하기|연습|복습하기|패러프레이징|이렇게 말할 수도 있어요|이렇게 패러프레이징 했어요|영어로는\??|문장을 만들어보세요|haze)$/i;
+/** Turn shared or OCR'd text (e.g. a Heyring screenshot) into an English/Korean pair for the add dialog. */
+export function parseShared(text) {
+  const hangul = /[가-힣]/;
+  const lines = String(text ?? '').split(/\r?\n|\s{3,}/).map(l => l.trim()).filter(Boolean)
+    .filter(l => !UI_WORDS.test(l) && !/^[\d\s:.%·|/-]+$/.test(l) && l.length > 1);
+  const latin = lines.filter(l => !hangul.test(l) && /[A-Za-z]{2,}/.test(l));
+  const multi = latin.filter(l => l.split(/\s+/).length >= 2);
+  const english = multi.length ? multi : latin.slice(0, 1);
+  const korean = lines.filter(l => hangul.test(l) && !/[A-Za-z]{3,}/.test(l));
+  const pair = parseBulk(lines.join('\n')).items[0];
+  if (!english.length && !korean.length && pair) return pair;
+  return { english: english.join(' ').replace(/\s+/g, ' ').trim(), meaning: korean.join(' ').replace(/\s+/g, ' ').trim() };
+}

@@ -29,3 +29,10 @@ test('bulk parser finds the Korean side in any order',()=>{
  assert.deepEqual(items,[{english:'I came here by van.',meaning:'나는 밴을 타고 왔어'},{english:"It's up to you.",meaning:'너한테 달렸어'},{english:'Let me sleep on it.',meaning:'생각해 볼게'}]);
  assert.deepEqual(skipped,['no korean here']);
 });
+import {parseShared} from '../grade.js';
+test('shared screenshot text becomes an English/Korean pair',()=>{
+ const ocr="2:45\nTry\nAgain\nYeah, I can hear you loud\nand clear.\n응, 네 말 잘 들려.\n원어민\n나";
+ assert.deepEqual(parseShared(ocr),{english:'Yeah, I can hear you loud and clear.',meaning:'응, 네 말 잘 들려.'});
+ assert.deepEqual(parseShared('It is up to you. / 너한테 달렸어'),{english:'It is up to you.',meaning:'너한테 달렸어'});
+});
+test('a single shared word is still picked up',()=>{assert.deepEqual(parseShared('9:12\ndialect\n방언'),{english:'dialect',meaning:'방언'})});

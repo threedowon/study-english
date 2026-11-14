@@ -5,8 +5,8 @@ import {openSocial} from './lib/social.mjs';
 import {readFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 try{process.loadEnvFile(new URL('.env.local',import.meta.url))}catch(e){if(e.code!=='ENOENT')throw e}
-const files={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js','/grade.js':'grade.js','/config.js':'config.js'};
-const types={html:'text/html',css:'text/css',js:'text/javascript'};
+const files={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js','/grade.js':'grade.js','/config.js':'config.js','/manifest.webmanifest':'manifest.webmanifest','/icons/icon-180.png':'icons/icon-180.png','/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png'};
+const types={html:'text/html',css:'text/css',js:'text/javascript',webmanifest:'application/manifest+json',png:'image/png'};
 const schema={type:'object',properties:{summary:{type:'string'},expressions:{type:'array',maxItems:5,items:{type:'object',properties:{english:{type:'string'},meaning:{type:'string'},tip:{type:'string'}},required:['english','meaning','tip'],additionalProperties:false}}},required:['summary','expressions'],additionalProperties:false};
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data))};
 export function createHandler({apiKey=process.env.OPENAI_API_KEY,model=process.env.OPENAI_MODEL||'gpt-6-luna',request=fetch,social=null,appOrigin=process.env.APP_ORIGIN,frontendOrigin=process.env.FRONTEND_ORIGIN}={}){
@@ -97,7 +97,7 @@ return async(req,res)=>{
  }
  if(!['GET','HEAD'].includes(req.method))return json(res,405,{error:'허용되지 않는 요청입니다.'});
  const file=files[path];if(!file){res.writeHead(404);return res.end('Not found')}
- try{res.setHeader('Content-Type',`${types[file.split('.').pop()]}; charset=utf-8`);res.end(await readFile(new URL(file,import.meta.url)))}catch{res.writeHead(500);res.end('Unable to load page')}
+ try{res.setHeader('Content-Type',file.endsWith('.png')?'image/png':`${types[file.split('.').pop()]}; charset=utf-8`);res.end(await readFile(new URL(file,import.meta.url)))}catch{res.writeHead(500);res.end('Unable to load page')}
 };
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)http.createServer(createHandler({social:openSocial(process.env.DATA_PATH||new URL('data/study.sqlite',import.meta.url).pathname)})).listen(Number(process.env.PORT)||5173,process.env.APP_ORIGIN?'0.0.0.0':'127.0.0.1',()=>console.log('Local: http://127.0.0.1:5173'));
