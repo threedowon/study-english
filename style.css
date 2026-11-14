@@ -23,3 +23,15 @@ dialog label small{color:var(--muted);font-size:10px;margin-left:6px}.form-help 
 .bulk-preview{font-size:12px;color:#5c6b60;background:#f7f8f3;border-radius:10px;padding:12px 14px;margin:-4px 0 16px;line-height:1.6}.bulk-preview ul{margin:6px 0 0;padding-left:18px}.bulk-preview em{color:#b0703a;font-style:normal}
 @media(max-width:540px){.review-card .prompt-ko{font-size:22px}.mic-big span{width:80px;height:80px}.review-actions .button{min-width:0;flex:1}}
 @media(hover:none){.keys{display:none}}
+
+/* Two-page notebook: write, then review. */
+.expression-fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.expression-fields textarea{margin:0;min-height:100px}
+.vocabulary-search{display:flex;gap:10px;align-items:center}
+.vocabulary-search input{flex:1;min-width:0;margin:0}
+.vocabulary-search button{flex-shrink:0}
+.example-card{border:1px solid var(--line);border-radius:12px;padding:18px;margin:12px 0;background:var(--bg)}
+.example-card p{margin:0 0 8px}.example-card small{color:var(--muted)}
+.example-card .editor-actions{margin-top:12px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:540px){.expression-fields{grid-template-columns:1fr;gap:15px}.sidebar nav .nav{width:50%;font-size:12px}.header-account{gap:10px}.header-account .date{display:none}.vocabulary-search{flex-wrap:wrap}.vocabulary-search input{width:100%;flex-basis:100%}.vocabulary-search button{width:100%}}

@@ -75,3 +75,20 @@ test('Worker permits only explicit migration origins, including preflight',async
   if(!allowed)assert.equal(post.status,403);
  }
 });
+
+test('vocabulary generates Korean meanings and sentence examples without bypassing auth or limits',async()=>{
+ const db=database(),env={...envFor(db),OPENAI_API_KEY:'test-only'},original=globalThis.fetch;
+ try{
+  const store=socialStore(db,env),a=await store.register({...signup,setupCode:env.SETUP_CODE});let calls=0;
+  const result={summary:'curious: 궁금한, 호기심이 많은',expressions:[{english:"I'm curious about your project.",meaning:'네 프로젝트가 궁금해.',tip:'be curious about + 대상'}]};
+  globalThis.fetch=async(url,options)=>{calls++;const body=JSON.parse(options.body);assert.equal(body.input,'curious');assert.match(body.instructions,/complete English example sentences/);assert.equal(body.store,false);return Response.json({output:[{content:[{type:'output_text',text:JSON.stringify(result)}]}]})};
+  const req=(text='curious',auth=true,origin=env.FRONTEND_ORIGIN)=>new Request('https://study.example.com/api/vocabulary',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(auth?{Cookie:`study_session=${a.token}`,'X-Study-User':a.user.id}:{})},body:JSON.stringify({text})});
+  assert.equal((await worker.fetch(req('curious',false),env)).status,401);
+  assert.equal((await worker.fetch(req('curious',true,'https://evil.example'),env)).status,403);
+  assert.equal((await worker.fetch(req('x'.repeat(101)),env)).status,400);
+  assert.equal(calls,0);
+  assert.deepEqual(await (await worker.fetch(req(),env)).json(),result);
+  try{await store.limit('ai:cooldown:'+a.user.id,1,5000)}catch{}
+  assert.equal((await worker.fetch(req(),env)).status,429);assert.equal(calls,1);
+ }finally{globalThis.fetch=original;db.close()}
+});
