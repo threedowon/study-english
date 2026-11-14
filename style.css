@@ -335,3 +335,11 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:0}
 .listen-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .pill.listen{height:56px;font-size:16px;background:var(--surface-3)}
 .pill.listen .ui-icon{width:20px;height:20px}
+/* bubble sits right above the mic, sharing a slot with the live waveform */
+.voice-panel{display:grid;grid-template-columns:1fr;justify-items:center;row-gap:0;padding-top:4px}
+.voice-panel>.speak-tip,.voice-panel>.voice-wave{grid-row:1;grid-column:1;align-self:end;margin:0 0 16px}
+.voice-panel>.control-row{grid-row:2}
+.voice-panel>.heard{grid-row:3;margin-top:14px}
+.voice-panel>#answer-notice{grid-row:4;margin-top:8px}
+.speak-tip{margin:0 0 16px}
+.voice-wave{height:44px}
