@@ -271,3 +271,8 @@ dialog label small{font-weight:500;color:var(--muted);margin-left:6px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 #toast{border-radius:16px;width:max-content}
 input:focus-visible,textarea:focus-visible,select:focus-visible{outline:0}
+.compose-actions{justify-content:flex-end;margin-top:0}
+.vocabulary-search{margin-bottom:0}
+.vocabulary-panel .card-title{margin-bottom:12px}
+.vocabulary-panel .helper[role=status]{margin-top:10px}
+#word-lookup{margin-top:4px}
