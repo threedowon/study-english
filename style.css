@@ -276,3 +276,4 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:0}
 .vocabulary-panel .card-title{margin-bottom:12px}
 .vocabulary-panel .helper[role=status]{margin-top:10px}
 #word-lookup{margin-top:4px}
+.review-card>.type-answer{margin-top:4px}
