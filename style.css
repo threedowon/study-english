@@ -141,7 +141,7 @@ dialog label small{color:var(--muted);font-size:10px;margin-left:6px}.form-help 
  #say-answer .mic-label{font-size:17px}#say-answer .mic-caption{font-size:12px}
  #answer-notice{font-size:13px;min-height:0}
  .review-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
- .review-tools .text-btn{font-size:13px;border:1px solid var(--line);border-radius:12px;text-decoration:none;padding:10px 5px}
+ .review-tools .text-btn{word-break:keep-all;overflow-wrap:anywhere;font-size:13px;border:1px solid var(--line);border-radius:12px;text-decoration:none;padding:10px 5px}
  .review-tools .text-btn:only-child{grid-column:1/-1}
  .type-answer{gap:8px}.type-answer .button{min-width:60px;font-size:14px}
  .review-answer{padding:18px;font-size:20px;line-height:1.65;margin:18px 0}
