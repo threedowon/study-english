@@ -5,7 +5,8 @@
   "workers_dev": true,
   "preview_urls": false,
   "vars": {
-    "FRONTEND_ORIGIN": "https://study-english-api.qkryewon.workers.dev",
+    "FRONTEND_ORIGIN": "https://english.3dowon.com",
+    "ADDITIONAL_FRONTEND_ORIGIN": "https://study-english-api.qkryewon.workers.dev",
     "OPENAI_MODEL": "gpt-6-luna"
   },
   "d1_databases": [{
