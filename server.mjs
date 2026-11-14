@@ -3,7 +3,7 @@ import {openSocial} from './lib/social.mjs';
 import {readFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 try{process.loadEnvFile(new URL('.env.local',import.meta.url))}catch(e){if(e.code!=='ENOENT')throw e}
-const files={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js','/config.js':'config.js'};
+const files={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js','/grade.js':'grade.js','/config.js':'config.js'};
 const types={html:'text/html',css:'text/css',js:'text/javascript'};
 const schema={type:'object',properties:{summary:{type:'string'},expressions:{type:'array',maxItems:5,items:{type:'object',properties:{english:{type:'string'},meaning:{type:'string'},tip:{type:'string'}},required:['english','meaning','tip'],additionalProperties:false}}},required:['summary','expressions'],additionalProperties:false};
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data))};
