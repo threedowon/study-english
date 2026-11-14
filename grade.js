@@ -118,7 +118,8 @@ const UI_WORDS = /^(try again|try|again|great!?|good!?|perfect!?|원어민|나|�
 /** Turn shared or OCR'd text (e.g. a Heyring screenshot) into an English/Korean pair for the add dialog. */
 export function parseShared(text) {
   const hangul = /[가-힣]/;
-  const lines = String(text ?? '').split(/\r?\n|\s{3,}/).map(l => l.trim()).filter(Boolean)
+  const cleaned = String(text ?? '').replace(/따라\s*말해\s*보세요|따라\s*해\s*보세요|문장을\s*만들어\s*보세요|영어로는\?/g, '\n');
+  const lines = cleaned.split(/\r?\n|\s{3,}/).map(l => l.trim()).filter(Boolean)
     .filter(l => !UI_WORDS.test(l) && !/^[\d\s:.%·|/-]+$/.test(l) && l.length > 1);
   const latin = lines.filter(l => !hangul.test(l) && /[A-Za-z]{2,}/.test(l));
   const multi = latin.filter(l => l.split(/\s+/).length >= 2);
