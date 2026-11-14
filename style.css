@@ -422,3 +422,5 @@ dialog textarea{min-height:56px;overflow-y:auto}
 .score-chips b{color:var(--text);font-weight:700;margin-left:2px}
 .verdict-arc strong{font-size:28px;line-height:1.05;text-align:center;padding-bottom:6px;max-width:130px}
 .result-stage .verdict-arc{width:190px;height:104px}
+.word-chunk{display:inline-flex;align-items:flex-end;gap:3px}
+.word-chunk .punct{font-size:22px;font-weight:700;line-height:.6;color:#8c919b}
