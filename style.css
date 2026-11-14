@@ -37,3 +37,107 @@ dialog label small{color:var(--muted);font-size:10px;margin-left:6px}.form-help 
 @media(max-width:540px){.expression-fields{grid-template-columns:1fr;gap:15px}.sidebar nav .nav{width:33.333%;font-size:12px}.header-account{gap:10px}.header-account .date{display:none}.vocabulary-search{flex-wrap:wrap}.vocabulary-search input{width:100%;flex-basis:100%}.vocabulary-search button{width:100%}}
 
 #say-answer{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}.answer-playback audio{width:100%;margin-top:8px}
+
+/* Stable recording control: changing status never removes its touch target. */
+.voice-panel{margin:20px auto 12px;max-width:480px}
+#say-answer{width:100%;min-height:142px;display:grid;grid-template-columns:64px minmax(0,1fr);grid-template-rows:auto auto;column-gap:18px;row-gap:6px;align-content:center;text-align:left;padding:22px;border:1px solid #315d45;border-radius:22px;background:var(--green);color:#fff;margin:12px 0;box-sizing:border-box;overflow:hidden}
+#say-answer .mic-symbol{grid-column:1;grid-row:1/3;display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:#ffffff20;color:#fff;font-size:30px;box-shadow:none;transform:none;animation:none}
+#say-answer .mic-label{grid-column:2;grid-row:1;width:auto;height:auto;display:block;border-radius:0;background:none;color:inherit;font-size:17px;font-weight:700;box-shadow:none;transform:none;animation:none;overflow-wrap:anywhere}
+#say-answer .mic-caption{grid-column:2;grid-row:2;font-size:12px;color:inherit;opacity:.85;line-height:1.5}
+#say-answer.on{background:#a94131;border-color:#a94131}
+#say-answer.cancelling{background:#65594c;border-color:#65594c}
+#say-answer:disabled{opacity:.75}
+.mic-prepare{width:100%;min-height:48px;font-size:14px}
+#answer-notice{min-height:44px;line-height:1.6;margin:8px 0;font-size:13px;color:#53674e}
+#heard:empty{display:none}
+.audio-disclosure{font-size:12px;margin:16px 0 4px}
+.voice-help,.typing-option{border:0;text-align:left;padding:8px 0}
+.voice-help summary,.typing-option summary{padding:12px 8px;min-height:44px;font-size:14px;color:var(--green)}
+.type-answer{max-width:none;margin:8px 0}
+.notebook-shortcuts{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.notebook-shortcuts a{flex:1;text-align:center;white-space:nowrap;min-height:44px;padding:12px;border:1px solid var(--line);background:white;border-radius:12px;font-size:13px;color:var(--green)}
+#quick-expression-form,#word-lookup,#saved-expressions{scroll-margin-top:88px}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+@media(max-width:800px){
+ :root{--mobile-nav:calc(70px + env(safe-area-inset-bottom,0px))}
+ html{scroll-padding-bottom:var(--mobile-nav)}
+ body{font-size:15px;line-height:1.5}
+ .sidebar{inset:auto 0 0;width:100%;height:var(--mobile-nav);padding:4px max(12px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(12px,env(safe-area-inset-left,0px));border-right:0;border-top:1px solid var(--line);background:#fffffff5;backdrop-filter:blur(16px);z-index:20}
+ .brand,.sidebar-bottom,.workspace-label{display:none}
+ .sidebar nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));height:66px;gap:6px;align-items:center}
+ .sidebar nav .nav{width:100%;height:58px;display:flex;flex-direction:column;justify-content:center;gap:3px;font-size:12px;margin:0;padding:7px 3px;border-radius:14px}
+ .sidebar nav .nav>span{font-size:23px;line-height:24px}.nav b,.nav i{display:none}
+ .app{margin-left:0;min-width:0}
+ header{position:sticky;top:0;z-index:10;height:auto;min-height:62px;padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));gap:12px;background:#f8f9f6f5;backdrop-filter:blur(12px)}
+ header>div:first-child{min-width:0;flex:1}header .breadcrumb,header .header-divider,header .date{display:none}
+ #page-label{font-size:14px;font-weight:600;white-space:nowrap}
+ .header-account{gap:6px;max-width:65%;min-width:0}
+ .header-account .text-btn{min-height:44px;font-size:12px;padding:8px;color:var(--green)}
+ #account-label{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ main{padding:24px 16px 16px;max-width:680px}
+ footer{padding:20px 16px calc(var(--mobile-nav) + 24px);font-size:10px;flex-wrap:wrap}
+ .button,.icon-btn,.text-btn{min-height:44px;min-width:44px}
+ .button{padding:13px 16px;font-size:15px;border-radius:12px;gap:10px}
+ .text-btn{font-size:13px;padding:10px;color:#53694a}
+ input,textarea,select{font-size:16px;min-height:48px;padding:13px 12px;border-radius:12px}
+ textarea{line-height:1.65}
+ .helper,.settings-card p,.page-head p{font-size:13px;color:#62725d;line-height:1.75}
+ h1,.page-head h1{font-size:26px;line-height:1.35;letter-spacing:-1px}
+ h2{font-size:20px}
+ .page-head{gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px}
+ .page-head .button{font-size:14px;min-height:46px;margin:0}
+ .page-head p{margin-bottom:0}
+ .intro{flex-direction:column;gap:12px;margin-bottom:20px}.intro h1{font-size:25px}.intro p{font-size:13px}
+ .intro .eyebrow{font-size:10px}.streak{font-size:12px;padding:8px 13px}
+ .dashboard{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+ .review-summary{grid-column:1;grid-row:1;padding:20px}
+ .hero{grid-column:1;grid-row:2;padding:22px;min-height:230px}
+ .hero h2{font-size:25px;line-height:1.5;margin-top:12px}.hero p{font-size:13px;max-width:70%}
+ .hero .button{font-size:14px;min-height:48px;max-width:100%}
+ .illustration{right:0;bottom:22px;transform:scale(.65) rotate(-9deg);transform-origin:bottom right}.bubble{display:none}
+ .side-section{grid-column:1;grid-row:3}.expressions-section{grid-column:1;grid-row:4;min-width:0}
+ .quote-card{display:none}.section-title{margin:12px 0;gap:8px}.section-title h2{font-size:18px}.section-title h2 small{font-size:11px}
+ .card-top{font-size:14px}.tiny-tag{font-size:10px}
+ .review-numbers{margin-top:12px;font-size:14px}.review-summary p{font-size:13px}.progress-label{font-size:12px}
+ .week-card{padding:20px}.week-card h3{font-size:14px;line-height:1.6}
+ .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}.day{font-size:12px}.day span{width:32px;height:32px;margin:8px auto 0}
+ .week-card p{font-size:12px;margin-top:16px}
+ .bottom-banner{grid-column:1;grid-row:5;display:grid;grid-template-columns:24px minmax(0,1fr);font-size:13px;padding:16px;gap:8px}
+ .bottom-banner .text-btn{grid-column:1/-1;margin:0;text-align:left;white-space:normal}
+ .editor{padding:18px;margin-top:16px;border-radius:18px;min-width:0}
+ .editor h2{font-size:19px;margin:0 0 16px}.editor label{font-size:14px;margin-bottom:8px}
+ .expression-fields{grid-template-columns:minmax(0,1fr);gap:16px}.expression-fields textarea{min-height:88px}
+ .editor-actions{flex-wrap:wrap;gap:8px}.editor-actions>.button{flex:1;min-width:140px}
+ #quick-expression-form .editor-actions{display:grid;grid-template-columns:1fr}
+ .vocabulary-search{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.vocabulary-search input{width:100%}.vocabulary-search .button{width:100%}
+ .example-card{padding:16px}.example-card p{font-size:15px}.example-card small{font-size:12px;line-height:1.6}
+ .toolbar{gap:8px}.toolbar input{min-width:0}.toolbar select{width:110px}
+ .note-row{padding:16px;gap:8px}.note-icon{display:none}.note-body h3{font-size:16px;line-height:1.6}.note-body p{font-size:14px;line-height:1.6;color:#62725d}.note-meta{display:none}
+ .note-row:has([data-edit]){display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+ .note-row:has([data-edit]) .note-body{grid-column:1/-1;margin-bottom:6px}
+ .note-row:has([data-edit]) button{width:100%;border-radius:10px;background:#f5f7f0;margin:0;min-width:0;font-size:15px}
+ .note-row:has([data-edit]) .text-btn{font-size:12px;padding:8px 3px}
+ .review-card{padding:22px 18px;margin:14px auto 20px;border-radius:20px;min-height:0}
+ .review-card .prompt-ko{font-size:24px;line-height:1.6;margin:12px 0 20px;word-break:normal;overflow-wrap:anywhere}
+ .review-card .pill{font-size:11px;letter-spacing:0}
+ .voice-panel{margin:14px 0 8px;max-width:none}
+ #say-answer{min-height:136px;padding:18px;column-gap:16px;border-radius:20px}
+ #say-answer .mic-label{font-size:17px}#say-answer .mic-caption{font-size:12px}
+ #answer-notice{font-size:13px;min-height:42px}
+ .review-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .review-tools .text-btn{font-size:13px;border:1px solid var(--line);border-radius:12px;text-decoration:none;padding:10px 5px}
+ .review-tools .text-btn:only-child{grid-column:1/-1}
+ .type-answer{gap:8px}.type-answer .button{min-width:60px;font-size:14px}
+ .review-answer{padding:18px;font-size:20px;line-height:1.65;margin:18px 0}
+ .review-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:18px}
+ .review-actions .button{min-width:0;padding:12px 4px;font-size:14px;min-height:64px}.review-actions .button small{font-size:11px}
+ .attempt{padding:14px}.attempt p{font-size:14px}.attempt span{font-size:12px}
+ .settings-card{padding:20px;max-width:100%}.settings-card label{font-size:14px}
+ .sharing-grid{grid-template-columns:minmax(0,1fr)}.sharing-steps{gap:6px}.sharing-steps span{font-size:12px}
+ .account-strip{flex-wrap:wrap;gap:10px;font-size:14px}.connection-row{font-size:14px;overflow-wrap:anywhere}
+ dialog{position:fixed;inset:auto 0 0;box-sizing:border-box;width:100%;max-width:680px;max-height:calc(100dvh - 16px);margin:0 auto;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));border-radius:24px 24px 0 0;overflow-y:auto;overscroll-behavior:contain;scroll-padding:20px}
+ dialog label{font-size:14px}dialog label small{display:block;margin:4px 0;font-size:12px}.form-help{font-size:12px}
+ .modal-heading{margin-bottom:16px}.modal-heading h2{font-size:21px}.modal-heading .icon-btn{align-self:flex-start}
+ #toast{bottom:calc(var(--mobile-nav) + 12px);font-size:14px;width:max-content;max-width:calc(100vw - 32px);padding:13px 16px;z-index:30}
+}
+@media(max-width:360px){main{padding-left:12px;padding-right:12px}.hero h2{font-size:23px}.hero p{max-width:100%}.illustration{display:none}.header-account #account-label{max-width:110px}.day span{width:28px;height:28px}.review-card{padding:18px 14px}#say-answer{grid-template-columns:48px minmax(0,1fr);gap:12px;padding:16px}#say-answer .mic-symbol{width:48px;height:48px}.review-actions .button{font-size:12px}}

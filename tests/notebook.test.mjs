@@ -7,7 +7,7 @@ import * as grading from '../grade.js';
 const source=readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/^import .*\n/,'');
 function fixture(){
  const listeners={},elements=new Map();
- function element(key){if(!elements.has(key))elements.set(key,{addEventListener(){},firstChild:{textContent:''},value:'',textContent:'',innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){},setAttribute(){},reset(){},showModal(){this.open=true},close(){this.open=false}});return elements.get(key)}
+ function element(key){if(!elements.has(key))elements.set(key,{querySelector:selector=>element(key+' '+selector),addEventListener(){},firstChild:{textContent:''},value:'',textContent:'',innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){},setAttribute(){},reset(){},showModal(){this.open=true},close(){this.open=false}});return elements.get(key)}
  const document={querySelector:key=>key==='dialog[open]'?null:element(key),querySelectorAll:()=>[],addEventListener(type,handler){(listeners[type]??=[]).push(handler)}};
  const saved=[];const context={...grading,document,window:{STUDY_CONFIG:{staticOnly:true},addEventListener(){},scrollTo(){}},localStorage:{getItem:()=>null,setItem:(key,value)=>saved.push(JSON.parse(value))},crypto:webcrypto,location:{hash:'',hostname:'localhost'},URLSearchParams,URL,Blob,AbortController,Intl,Date,AbortSignal,structuredClone,setTimeout:()=>0,clearTimeout(){},fetch(){assert.fail('No automatic AI requests')}};
  vm.createContext(context);vm.runInContext(source,context);
@@ -115,4 +115,29 @@ test('holding Space records once despite key repeats and releasing Space submits
  await f.dispatch('keydown',event);await settle();
  const first=f.rec;await f.dispatch('keydown',{...event,repeat:true});assert.equal(f.rec,first);
  f.run('holdSession.started-=1000');await f.dispatch('keyup',event);await settle();assert.equal(f.uploads,1);
+});
+
+test('preparing microphone closes the stream without recording or uploading',async()=>{
+ const f=recordingFixture();await f.run('prepareMicrophone()');
+ assert.ok(f.stopped>0);assert.equal(f.rec,undefined);assert.equal(f.uploads,0);
+ assert.equal(f.run('micReady'),true);assert.equal(f.run('micPreparing'),false);
+ assert.doesNotMatch(f.element('#content').innerHTML,/id="prepare-mic"/);
+});
+test('hold status preserves microphone button children',async()=>{
+ const f=recordingFixture();const button=f.element('#say-answer');
+ button.innerHTML='<span class="mic-symbol"></span><span class="mic-label"></span>';
+ const before=button.innerHTML;await f.run("startHoldAnswer('pointer:1')");
+ assert.equal(button.innerHTML,before);
+ assert.match(button.querySelector('.mic-label').textContent,/녹음 중/);
+ f.run("releaseHoldAnswer('pointer:1',true)");
+});
+test('upward swipe cancels; small movement and returning to button submit',async()=>{
+ for(const positions of [[300],[480],[300,490]]){
+  const f=recordingFixture();const button={setPointerCapture(){}};
+  await f.dispatch('pointerdown',{target:{closest:()=>button},button:0,pointerId:8,isPrimary:true,clientY:500,preventDefault(){}});
+  await settle();f.run('holdSession.started-=1000');
+  for(const clientY of positions)await f.dispatch('pointermove',{pointerId:8,clientY});
+  await f.dispatch('pointerup',{pointerId:8});await settle();
+  assert.equal(f.uploads,positions.at(-1)===300?0:1);assert.ok(f.stopped>0);
+ }
 });

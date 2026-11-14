@@ -22,9 +22,9 @@ function rows(notes){return notes.length?notes.map(n=>`<article class="note-row"
 function week(){const start=new Date();start.setDate(start.getDate()-((start.getDay()+6)%7));const dates=new Set(state.history.map(h=>h.date));return ['월','화','수','목','금','토','일'].map((label,i)=>{const d=new Date(start);d.setDate(d.getDate()+i);const key=dayKey(d),done=dates.has(key);return `<div class="day ${done?'done':''} ${key===dayKey()?'today':''}">${label}<span>${done?'✓':d.getDate()}</span></div>`}).join('')}
 function home(){const count=due().length,done=todayReviews(),goal=Number(state.goal)||5;return `<section class="intro"><div><span class="eyebrow">A LITTLE BETTER, EVERY DAY</span><h1>${esc(currentUser?.name||'예원')}님, 오늘은 어떤 하루였나요?<span class="wave">☀</span></h1><p>완벽하지 않아도 괜찮아요. 오늘의 이야기를 영어로 남겨봐요.</p></div><span class="streak">✳ <b>${streak()}일</b> 연속 복습</span></section><div class="dashboard"><section class="hero"><span class="pill">YOUR DAILY ENGLISH</span><h2>나의 일상을 말하다 보면,<br>영어도 조금씩 자라요.</h2><p>헤이링에서 배운 표현도, 새로 알게 된 단어도.</p><button class="button primary" data-page="notes">오늘 배운 표현 기록하기 <span>↗</span></button><div class="illustration" aria-hidden="true"><div class="bubble">One sentence a day.</div><span class="spark">✧</span><div class="plant"><span class="face">•ᴗ•</span></div></div></section><section class="review-summary"><div class="card-top">↻ &nbsp; 오늘 다시 만날 표현 <span class="tiny-tag">DAILY REVIEW</span></div><div class="review-numbers"><strong>${count}</strong>개의 표현이 기다려요</div><p>어제의 한 문장을, 오늘은 조금 더 자연스럽게.</p><div class="progress-track"><span style="width:${Math.min(100,done/goal*100)}%"></span></div><div class="progress-label"><span>오늘의 복습 목표</span><span>${done} / ${goal}개 완료</span></div><button class="button" data-page="review">${count?'가볍게 복습하기':'오늘 복습 완료!'} <span>→</span></button></section><section class="expressions-section"><div class="section-title"><h2>차곡차곡, 나의 표현 <small>RECENT WORDS</small></h2><button class="text-btn" data-page="notes">모두 보기 ↗</button></div><div class="notes-list">${rows(state.notes.slice(0,3))}</div></section><section class="side-section"><div class="section-title"><h2>이번 주의 작은 꾸준함</h2><span class="eyebrow">THIS WEEK</span></div><div class="week-card"><h3>하루 한 번, 영어와 가까워지는 시간</h3><div class="days">${week()}</div><p>✧ &nbsp; 한 문장만 복습해도 충분히 잘하고 있어요.</p></div><div class="quote-card"><span class="eyebrow">A LITTLE REMINDER</span><blockquote>“Small steps.<br>Real progress.”</blockquote><p>작은 걸음도, 분명한 나아감이니까.</p></div></section><div class="bottom-banner"><span>♡</span><span>친구와 함께 꾸준히 공부해요. 초대하고, 고른 표현을 나눠보세요.</span><button class="text-btn" data-page="together">친구 초대 · 함께 공부 ↗</button></div></div>`}
 function notes(){const list=state.notes.filter(n=>(filter==='전체'||n.category===filter)&&`${n.english} ${n.meaning}`.toLowerCase().includes(search.toLowerCase()));return `<div class="page-head"><div><span class="eyebrow">MY ENGLISH NOTEBOOK</span><h1>표현 노트</h1><p>영어와 한글 뜻을 적고, 내일 다시 기억해 봐요.</p></div><button class="button primary" data-page="review">복습하기 · ${due().length}개 →</button></div>
-<form class="editor" id="quick-expression-form"><h2>기억하고 싶은 표현</h2><div class="expression-fields"><div><label for="quick-english">영어 표현</label><textarea id="quick-english" required maxlength="1000" rows="3" lang="en" placeholder="I came here by van.">${esc(quickDraft.english)}</textarea></div><div><label for="quick-meaning">한글 뜻</label><textarea id="quick-meaning" required maxlength="1000" rows="3" lang="ko" placeholder="나는 밴을 타고 여기까지 왔어.">${esc(quickDraft.meaning)}</textarea></div></div><div class="editor-actions"><button class="button primary" type="submit">저장하고 복습에 추가 ＋</button><button class="text-btn" type="button" data-bulk>여러 개 붙여넣기</button></div></form>
-<section class="editor vocabulary-panel"><h2>모르는 단어 찾아보기</h2><p class="helper">뜻과 짧은 예문을 함께 알아보고, 문장으로 기억해요.</p><form id="vocabulary-form" class="vocabulary-search"><label class="sr-only" for="vocabulary-query">찾을 영어 단어 또는 표현</label><input id="vocabulary-query" maxlength="100" required value="${esc(vocabularyQuery)}" placeholder="예: figure out, curious" ${vocabularyBusy?'disabled':''}><button class="button" ${vocabularyBusy?'disabled':''}>${vocabularyBusy?'찾는 중…':'뜻 · 예문 찾기'}</button></form><p class="helper">AI가 뜻과 예문을 만들어 줘요. 로그인 후 사용할 수 있으며, 검색할 때 API 사용량이 발생해요.</p><p class="helper" role="status">${esc(vocabularyError)}</p>${vocabularyResult?`<div class="vocabulary-result"><h3>${esc(vocabularyResult.query)}</h3><p style="white-space:pre-wrap">${esc(vocabularyResult.summary)}</p><p class="helper">외우기 좋은 예문 · 저장 전에 영어와 한글을 수정할 수 있어요.</p>${vocabularyResult.expressions.map((x,i)=>`<article class="example-card"><p lang="en"><strong>${esc(x.english)}</strong></p><p>${esc(x.meaning)}</p><small>${esc(x.tip)}</small><div class="editor-actions"><button class="text-btn" data-example-listen="${i}" aria-label="${i+1}번 예문 듣기">♬ 듣기</button><button class="button" data-example-use="${i}">이 문장으로 외우기 ＋</button></div></article>`).join('')}<small class="helper">AI 설명은 틀릴 수 있어요. 문맥에 맞는 뜻인지 확인해 주세요.</small></div>`:''}</section>
-<div class="section-title"><h2>저장한 표현 <small>${state.notes.length}개</small></h2></div><div class="toolbar"><input id="search" aria-label="저장한 표현 검색" placeholder="저장한 영어, 뜻으로 찾아보기" value="${esc(search)}"><select id="filter" aria-label="주제 필터">${['전체','일상','여행','작업과 취미','자유 대화'].map(x=>`<option ${filter===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="notes-list">${rows(list)}</div><p class="helper">${currentUser?'내 계정에 저장돼요. 함께 보기를 켠 표현만 친구에게 공유돼요.':'지금은 이 브라우저에 저장돼요. 다른 기기에서도 보려면 로그인하세요.'}</p>`}
+<div class="notebook-shortcuts" aria-label="표현 노트 바로가기"><a href="#quick-expression-form">표현 쓰기</a><a href="#word-lookup">단어 찾기</a><a href="#saved-expressions">내 목록</a></div><form class="editor" id="quick-expression-form"><h2>기억하고 싶은 표현</h2><div class="expression-fields"><div><label for="quick-english">영어 표현</label><textarea id="quick-english" required maxlength="1000" rows="2" lang="en" placeholder="I came here by van.">${esc(quickDraft.english)}</textarea></div><div><label for="quick-meaning">한글 뜻</label><textarea id="quick-meaning" required maxlength="1000" rows="2" lang="ko" placeholder="나는 밴을 타고 여기까지 왔어.">${esc(quickDraft.meaning)}</textarea></div></div><div class="editor-actions"><button class="button primary" type="submit">저장하고 복습에 추가 ＋</button><button class="text-btn" type="button" data-bulk>여러 개 붙여넣기</button></div></form>
+<section class="editor vocabulary-panel" id="word-lookup"><h2>모르는 단어 찾아보기</h2><p class="helper">뜻과 짧은 예문을 함께 알아보고, 문장으로 기억해요.</p><form id="vocabulary-form" class="vocabulary-search"><label class="sr-only" for="vocabulary-query">찾을 영어 단어 또는 표현</label><input id="vocabulary-query" maxlength="100" required value="${esc(vocabularyQuery)}" placeholder="예: figure out, curious" ${vocabularyBusy?'disabled':''}><button class="button" ${vocabularyBusy?'disabled':''}>${vocabularyBusy?'찾는 중…':'뜻 · 예문 찾기'}</button></form><p class="helper">AI가 뜻과 예문을 만들어 줘요. 로그인 후 사용할 수 있으며, 검색할 때 API 사용량이 발생해요.</p><p class="helper" role="status">${esc(vocabularyError)}</p>${vocabularyResult?`<div class="vocabulary-result"><h3>${esc(vocabularyResult.query)}</h3><p style="white-space:pre-wrap">${esc(vocabularyResult.summary)}</p><p class="helper">외우기 좋은 예문 · 저장 전에 영어와 한글을 수정할 수 있어요.</p>${vocabularyResult.expressions.map((x,i)=>`<article class="example-card"><p lang="en"><strong>${esc(x.english)}</strong></p><p>${esc(x.meaning)}</p><small>${esc(x.tip)}</small><div class="editor-actions"><button class="text-btn" data-example-listen="${i}" aria-label="${i+1}번 예문 듣기">♬ 듣기</button><button class="button" data-example-use="${i}">이 문장으로 외우기 ＋</button></div></article>`).join('')}<small class="helper">AI 설명은 틀릴 수 있어요. 문맥에 맞는 뜻인지 확인해 주세요.</small></div>`:''}</section>
+<div class="section-title" id="saved-expressions"><h2>저장한 표현 <small>${state.notes.length}개</small></h2></div><div class="toolbar"><input id="search" aria-label="저장한 표현 검색" placeholder="저장한 영어, 뜻으로 찾아보기" value="${esc(search)}"><select id="filter" aria-label="주제 필터">${['전체','일상','여행','작업과 취미','자유 대화'].map(x=>`<option ${filter===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="notes-list">${rows(list)}</div><p class="helper">${currentUser?'내 계정에 저장돼요. 함께 보기를 켠 표현만 친구에게 공유돼요.':'지금은 이 브라우저에 저장돼요. 다른 기기에서도 보려면 로그인하세요.'}</p>`}
 const prompts={'일상':['How was your day?','오늘 기억에 남는 순간을 한 문장으로 이야기해 보세요.'],'여행':['Where would you like to go?','가고 싶은 곳이나 최근 여행에 대해 이야기해 보세요.'],'작업과 취미':['What are you working on lately?','만들고 있는 작품이나 요즘 즐기는 취미를 소개해 보세요.'],'자유 대화':["What's on your mind?",'어떤 이야기든 좋아요. 떠오르는 생각을 말해 보세요.']};
 function review(){return reviewPage()}
 function settings(){return `<div class="page-head"><div><span class="eyebrow">YOUR OWN PACE</span><h1>나만의 학습 속도</h1></div></div><form class="settings-card" id="settings-form"><h2>매일 조금씩</h2><p>부담 없이 꾸준히 이어갈 수 있는 목표를 정해요.</p><label for="goal">하루 복습 목표</label><select id="goal">${[3,5,10,15].map(n=>`<option value="${n}" ${Number(state.goal)===n?'selected':''}>${n}개</option>`).join('')}</select><button class="button primary" style="margin-top:20px">목표 저장하기</button><p>홈 화면에서 오늘 복습할 표현과 진행 상황을 안내해요. 사이트를 닫았을 때의 알림은 아직 지원하지 않아요.</p><hr style="border:0;border-top:1px solid var(--line);margin:24px 0"><h3>나에게 편한 영어 목소리</h3><p>기기에 설치된 영어 음성 중에서 골라 들어보세요. 목소리 품질과 목록은 브라우저와 기기에 따라 달라요.</p><label for="voice">영어 목소리</label><select id="voice">${voiceOptions()}</select><label for="speech-rate">말하기 속도</label><select id="speech-rate">${[.8,.9,1,1.1].map(rate=>`<option value="${rate}" ${Number(state.speechRate)===rate?'selected':''}>${rate}배${rate===1?' · 기본':''}</option>`).join('')}</select><button type="button" class="button" id="preview-voice" style="margin-top:16px">♬ 목소리 미리 듣기</button><p>목소리와 속도를 바꾸면 자동으로 저장돼요. AI 음성은 아직 연결되지 않았어요.</p><hr style="border:0;border-top:1px solid var(--line);margin:24px 0"><h3>나의 기록 보관하기</h3><p>${currentUser?'현재 기록은 로그인한 계정의 서버 저장소에 저장돼요. 파일로도 백업할 수 있어요.':'현재 기록은 이 기기의 브라우저에 저장돼요. 브라우저 데이터를 지우면 기록도 삭제되니, 파일로 백업해 두세요.'}</p><button type="button" class="button" id="export">기록 다운로드 ↓</button></form>`}
@@ -69,7 +69,7 @@ if('speechSynthesis' in window){
 }
 
 // ---- Speaking review: Korean prompt only, answer by voice (or typing), graded in the browser ----
-let answerNotice='',answerDraft='',answerAudioURL='',holdSession=null;
+let answerNotice='',answerDraft='',answerAudioURL='',holdSession=null,micReady=false,micPreparing=false;
 let attempt=null,hinted=false,tries=0,answerRec=null,answerFor=null,later=[],editingId=null;
 const SpeechAPI=()=>window.SpeechRecognition||window.webkitSpeechRecognition;
 function resetCard(){answerNotice='';answerDraft='';if(answerAudioURL){URL.revokeObjectURL(answerAudioURL);answerAudioURL=''}attempt=null;hinted=false;tries=0;revealed=false}
@@ -89,7 +89,7 @@ function reviewPage(){
  let body;
  if(!revealed){
   const feedback=attempt?`<div class="attempt ${attempt.score>=CLOSE?'close':'far'}"><strong>${attempt.score>=CLOSE?'거의 다 왔어요!':'아쉬워요, 한 번 더!'}</strong> <span>${Math.round(attempt.score*100)}% 일치 · ${tries}번째 시도</span><p>내 답변: “${esc(attempt.said||'(인식된 말 없음)')}”</p></div>`:'';
-  body=`${showHint}${feedback}<button type="button" class="mic-big ${listening?'on':''}" id="say-answer" aria-label="누르고 있는 동안 영어로 말하기" aria-pressed="${!!listening}" ${processing?'disabled':''}><span>${listening?'●':'🎤'}</span>${processing?'음성을 인식하고 있어요…':listening?'녹음 중 · 손을 떼면 완료':'누르고 있는 동안 말하기'}</button><p class="heard" id="heard" aria-live="polite">${esc(answerDraft)}</p><p class="helper" id="answer-notice" role="status">${esc(answerNotice)}</p><div class="review-tools">${!hinted&&current.meaning?'<button class="text-btn" id="show-hint">첫 글자 힌트</button>':''}<button class="text-btn" id="reveal">모르겠어요 · 정답 보기</button></div><form id="type-answer" class="type-answer"><input id="typed" value="${esc(answerDraft)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="말하기 어려울 땐 직접 입력" aria-label="직접 입력해서 맞추기"><button class="button">확인</button></form><p class="helper keys">Space를 누르는 동안 녹음 · 떼면 완료 · Enter 다음</p><p class="helper">녹음을 마치면 음성이 OpenAI로 전송되며 API 사용량이 발생해요. 최대 30초. 문장 일치도는 발음 점수가 아니에요. 인식된 문장이 다르면 직접 고쳐 확인할 수 있어요.</p>`;
+  body=`${showHint}${feedback}<div class="voice-panel">${!micReady?`<button type="button" class="button mic-prepare" id="prepare-mic" ${micPreparing?'disabled':''}>${micPreparing?'마이크 확인 중…':'처음이라면 · 마이크 사용 준비'}</button>`:''}<button type="button" class="mic-big ${listening?'on':''}" id="say-answer" aria-label="누르고 있는 동안 영어로 말하기" aria-pressed="${!!listening}" ${processing?'disabled':''}><span class="mic-symbol" aria-hidden="true">${listening?'●':'🎤'}</span><span class="mic-label">${processing?'음성을 인식하고 있어요…':listening?'녹음 중 · 손을 떼면 완료':'꾹 누르고 말하기'}</span><small class="mic-caption">${listening?'위로 밀면 취소':'손을 떼면 완료 · 최대 30초'}</small></button><p class="heard" id="heard" aria-live="polite">${esc(answerDraft)}</p><p class="helper" id="answer-notice" role="status">${esc(answerNotice)}</p></div><div class="review-tools">${!hinted&&current.meaning?'<button class="text-btn" id="show-hint">첫 글자 힌트</button>':''}<button class="text-btn" id="reveal">모르겠어요 · 정답 보기</button></div><details class="typing-option" ${answerDraft?'open':''}><summary>키보드로 답하기</summary><form id="type-answer" class="type-answer"><input id="typed" value="${esc(answerDraft)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="말하기 어려울 땐 직접 입력" aria-label="직접 입력해서 맞추기"><button class="button">확인</button></form></details><p class="helper keys">Space를 누르는 동안 녹음 · 떼면 완료 · Enter 다음</p><p class="helper audio-disclosure">음성은 OpenAI로 전송돼요 · API 사용료 발생</p><details class="voice-help"><summary>음성 인식 안내</summary><p class="helper">최대 30초까지 녹음돼요. 문장 일치도는 발음 점수가 아니에요. 잘못 인식된 문장은 키보드로 고쳐 확인할 수 있어요.</p></details>`;
  }else{
   const passed=attempt&&attempt.score>=PASS;
   const options=[['again','다시 볼래요'],['good','기억나요'],['easy','쉬워요']];
@@ -114,10 +114,25 @@ function setAnswerNotice(text){
 }
 function updateHoldButton(text,pressed=false){
  const button=$('#say-answer');if(!button)return;
- button.textContent=text;button.classList.toggle('on',pressed);button.setAttribute('aria-pressed',String(pressed));
+ const label=button.querySelector('.mic-label');if(label)label.textContent=text;
+ const symbol=button.querySelector('.mic-symbol');if(symbol)symbol.textContent=pressed?'●':'🎤';
+ const caption=button.querySelector('.mic-caption');if(caption)caption.textContent=pressed?'위로 밀면 취소':'손을 떼면 완료 · 최대 30초';
+ button.classList.toggle('on',pressed);button.setAttribute('aria-pressed',String(pressed));
+}
+async function prepareMicrophone(){
+ if(micPreparing||holdSession)return;
+ if(!currentUser){setAnswerNotice('마이크 복습은 로그인 후 사용할 수 있어요. 위쪽 로그인 버튼을 눌러 주세요.');return}
+ if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){setAnswerNotice('Safari나 Chrome에서 사이트를 직접 열어 주세요.');return}
+ micPreparing=true;const owner=currentUser.id;render();
+ try{
+  const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+  stream.getTracks().forEach(track=>track.stop());micReady=true;
+  if(page==='review'&&currentUser?.id===owner)setAnswerNotice('준비됐어요. 아래 버튼을 꾹 누르고 말한 뒤 손을 떼세요.');
+ }catch{if(page==='review')setAnswerNotice('마이크 권한을 허용한 뒤 다시 준비 버튼을 눌러 주세요.')}
+ finally{micPreparing=false;if(page==='review')render()}
 }
 async function startHoldAnswer(input,button){
- if(holdSession||revealed||page!=='review')return;
+ if(holdSession||micPreparing||revealed||page!=='review')return;
  if(!currentUser){setAnswerNotice('OpenAI 음성 인식은 로그인 후 사용할 수 있어요. 위쪽 로그인 버튼을 눌러 주세요.');return}
  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){setAnswerNotice('이 브라우저에서 녹음할 수 없어요. Safari나 Chrome에서 사이트를 직접 열어 주세요.');return}
  const note=currentCard();if(!note)return;
@@ -130,7 +145,7 @@ async function startHoldAnswer(input,button){
  try{
   const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
   if(holdSession!==session||session.released||session.cancelled){stream.getTracks().forEach(track=>track.stop());return}
-  session.stream=stream;
+  session.stream=stream;micReady=true;
   const type=['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg;codecs=opus'].find(type=>MediaRecorder.isTypeSupported(type));
   const rec=new MediaRecorder(stream,{...(type?{mimeType:type}:{}),audioBitsPerSecond:64000});session.recorder=rec;
   rec.ondataavailable=e=>{if(e.data.size)session.chunks.push(e.data)};
@@ -147,8 +162,8 @@ async function startHoldAnswer(input,button){
 function releaseHoldAnswer(input,cancel=false){
  const session=holdSession;if(!session||session.input!==input||session.released)return;
  session.released=true;clearTimeout(session.timer);
- if(cancel||session.phase==='permission'){
-  stopAnswer();setAnswerNotice(cancel?'녹음을 취소했어요.':'녹음 준비 전에 손을 뗐어요. 권한을 허용한 뒤 다시 누르고 말해 주세요.');render();return;
+ if(cancel||session.cancelIntent||session.phase==='permission'){
+  stopAnswer();setAnswerNotice((cancel||session.cancelIntent)?'녹음을 취소했어요.':'녹음 준비 전에 손을 뗐어요. 권한을 허용한 뒤 다시 누르고 말해 주세요.');render();return;
  }
  if(session.phase!=='recording')return;
  session.phase='processing';session.duration=Date.now()-session.started;
@@ -183,6 +198,14 @@ document.addEventListener('pointerdown',e=>{
  const b=e.target.closest('#say-answer');if(!b||e.button!==0||e.isPrimary===false||holdSession)return;
  e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch{}
  startHoldAnswer('pointer:'+e.pointerId,b);
+ if(holdSession?.input==='pointer:'+e.pointerId)holdSession.startY=e.clientY;
+});
+document.addEventListener('pointermove',e=>{
+ const s=holdSession;if(!s||s.input!=='pointer:'+e.pointerId||s.phase!=='recording'||s.released)return;
+ const cancel=s.startY-e.clientY>90;if(cancel===!!s.cancelIntent)return;s.cancelIntent=cancel;
+ updateHoldButton(cancel?'손을 떼면 녹음 취소':'녹음 중 · 손을 떼면 완료',true);
+ const b=$('#say-answer');if(b)b.classList.toggle('cancelling',cancel);
+ setAnswerNotice(cancel?'아래로 돌아오면 계속 녹음할 수 있어요.':'녹음 중이에요. 말이 끝나면 손을 떼세요.');
 });
 document.addEventListener('pointerup',e=>releaseHoldAnswer('pointer:'+e.pointerId));
 document.addEventListener('pointercancel',e=>releaseHoldAnswer('pointer:'+e.pointerId,true));
@@ -209,6 +232,7 @@ function updateBulkPreview(){const {items,skipped}=parseBulk($('#bulk-text').val
 document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
  if(b.id==='say-answer')e.preventDefault();
+ if(b.id==='prepare-mic')prepareMicrophone();
  if(b.id==='show-hint'){hinted=true;render()}
  if(b.dataset.edit){const note=state.notes.find(n=>n.id===b.dataset.edit);if(note)openAdd('',note)}
  if(b.matches('[data-bulk]'))openBulk();
