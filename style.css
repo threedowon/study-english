@@ -403,3 +403,12 @@ body[data-page=review] .speak-stage.result-stage{min-height:0}
 .result-stage .answer-en.long{font-size:22px}
 .result-stage .verdict-arc{width:170px;height:94px}
 .result-stage{gap:10px}
+dialog textarea{min-height:56px;overflow-y:auto}
+/* note card: icons float at the top-right, text runs the full width underneath */
+.note-row{display:block;padding:14px 12px 16px 18px}
+.note-row::after{content:'';display:block;clear:both}
+.note-row .note-actions{float:right;margin:-4px -2px 2px 8px;gap:0}
+.note-row .note-actions .icon-btn{width:36px;height:36px}
+.note-row .note-actions .ui-icon{width:19px;height:19px}
+.note-row .note-body{display:block;padding-top:4px}
+.note-row .note-body p{clear:none}
