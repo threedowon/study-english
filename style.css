@@ -424,3 +424,14 @@ dialog textarea{min-height:56px;overflow-y:auto}
 .result-stage .verdict-arc{width:190px;height:104px}
 .word-chunk{display:inline-flex;align-items:flex-end;gap:3px}
 .word-chunk .punct{font-size:22px;font-weight:700;line-height:.6;color:#8c919b}
+/* notebook rows: arrow / swipe reveals a tray */
+.note-row.swipe{position:relative;overflow:hidden;display:block;padding:16px 46px 16px 18px;touch-action:pan-y}
+.note-row.swipe .note-body{padding-top:0}
+.row-toggle{position:absolute;top:0;right:0;bottom:0;width:40px;border:0;background:linear-gradient(90deg,transparent,rgba(63,226,155,.08));color:var(--mint);display:grid;place-items:center}
+.row-toggle .ui-icon{width:20px;height:20px;transition:transform .2s}
+.note-row.open .row-toggle .ui-icon{transform:rotate(180deg)}
+.row-tray{position:absolute;top:0;bottom:0;right:40px;display:flex;align-items:center;gap:4px;padding:0 8px 0 18px;background:linear-gradient(90deg,rgba(23,24,27,0) 0,var(--surface) 16px);transform:translateX(calc(100% + 40px));transition:transform .22s ease;pointer-events:none}
+.note-row.open .row-tray{transform:translateX(0);pointer-events:auto}
+.tray-btn{width:44px;height:44px;border-radius:50%;border:0;background:var(--surface-3);color:var(--text);display:grid;place-items:center}
+.tray-btn .ui-icon{width:20px;height:20px}
+.tray-btn.danger{background:rgba(255,107,91,.18);color:#ff6b5b}
