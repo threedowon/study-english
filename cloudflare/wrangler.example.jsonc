@@ -1,0 +1,17 @@
+{
+  "name": "study-english-api",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-14",
+  "workers_dev": true,
+  "vars": {
+    "FRONTEND_ORIGIN": "https://study-english-api.YOUR_SUBDOMAIN.workers.dev",
+    "OPENAI_MODEL": "gpt-6-luna"
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "study-english",
+    "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+    "migrations_dir": "migrations"
+  }],
+  "assets": {"directory": "../dist-pages", "binding": "ASSETS", "run_worker_first": ["/api/*"]}
+}

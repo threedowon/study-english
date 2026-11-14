@@ -12,3 +12,6 @@ dist-pages/
 *.db
 *.db-*
 backups/
+
+cloudflare/wrangler.local.jsonc
+.wrangler/
