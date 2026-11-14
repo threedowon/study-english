@@ -62,3 +62,16 @@ test('Worker AI uses server secret, explicit calls and persistent cooldown',asyn
  }finally{globalThis.fetch=original;db.close()}
 });
 test('D1 registration accepts ten characters with symbols and rejects nine',async()=>{const db=database(),env=envFor(db),s=socialStore(db,env);try{await assert.rejects(s.register({...signup,password:'Ab1!xyz89',setupCode:env.SETUP_CODE}),{status:400});const a=await s.register({...signup,password:'Ab1!xyz890',setupCode:env.SETUP_CODE});assert.equal((await s.login({username:signup.username,password:'Ab1!xyz890'})).user.id,a.user.id)}finally{db.close()}});
+
+test('Worker permits only explicit migration origins, including preflight',async()=>{
+ const env={FRONTEND_ORIGIN:'https://english.3dowon.com',ADDITIONAL_FRONTEND_ORIGIN:'https://study-english-api.qkryewon.workers.dev',DB:{}};
+ for(const origin of [env.FRONTEND_ORIGIN,env.ADDITIONAL_FRONTEND_ORIGIN,'https://evil.example','https://english.3dowon.com.evil.example','null',null]){
+  const allowed=[env.FRONTEND_ORIGIN,env.ADDITIONAL_FRONTEND_ORIGIN].includes(origin);
+  const headers=origin?{Origin:origin}:{};
+  const pre=await worker.fetch(new Request('https://english.3dowon.com/api/study',{method:'OPTIONS',headers:{...headers,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type,x-study-user'}}),env);
+  assert.equal(pre.status,allowed?204:403);
+  assert.equal(pre.headers.get('Access-Control-Allow-Origin'),allowed?origin:null);
+  const post=await worker.fetch(new Request('https://english.3dowon.com/api/status',{method:'POST',headers}),env);
+  if(!allowed)assert.equal(post.status,403);
+ }
+});
