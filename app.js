@@ -80,7 +80,7 @@ function suggested(){return attempt&&attempt.score>=PASS?'good':'again'}
 function highlighted(words){return words.map(w=>`<span class="${w.hit?'hit':'miss'}">${esc(w.text)}</span>`).join(' ')}
 function reviewPage(){
  const current=currentCard();const left=reviewQueue().length;
- const head=`<div class="page-head"><div><span class="eyebrow">SAY IT IN ENGLISH</span><h1>오늘의 복습</h1><p>한글 뜻을 보고 영어로 말해보세요. ${reviewed?`이번에 ${reviewed}개 완료 · `:''}${left}개 남았어요.</p></div></div>`;
+ const head=`<div class="page-head review-heading"><div><span class="eyebrow">SAY IT IN ENGLISH</span><h1>오늘의 복습</h1><p>한글 뜻을 보고 영어로 말해보세요. ${reviewed?`이번에 ${reviewed}개 완료 · `:''}${left}개 남았어요.</p></div></div>`;
  if(!current)return `${head}<section class="review-card"><span style="font-size:50px">✳</span><h2>${state.notes.length?'오늘의 표현을 모두 만났어요!':'첫 표현을 담아볼까요?'}</h2><p class="helper">${state.notes.length?'작은 반복이 쌓여 내 영어가 돼요. 내일 다시 만나요.':'헤이링에서 배운 표현을 저장하면 이곳에서 말하며 복습할 수 있어요.'}</p><button class="button primary" data-add>새 표현 담기 ＋</button> <button class="button" data-bulk>여러 개 붙여넣기</button><br><button class="text-btn" data-page="home">오늘의 영어로 돌아가기</button></section>`;
  const listening=holdSession?.noteId===current.id&&holdSession.phase==='recording';
  const processing=holdSession?.noteId===current.id&&holdSession.phase==='processing';

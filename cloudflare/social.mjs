@@ -16,7 +16,7 @@ export function socialStore(db,env){
  const user=id=>stmt('SELECT id,username,name FROM users WHERE id=?',id).first();
  const requireUser=async id=>{if(!id||!await user(id))fail(401,'로그인이 필요해요.')};
  const service={
- async limit(key,max,windowMs){const bucket=Math.floor(Date.now()/windowMs);const row=await stmt(`INSERT INTO limits(key,bucket,count) VALUES(?,?,1) ON CONFLICT(key) DO UPDATE SET bucket=excluded.bucket,count=CASE WHEN limits.bucket=excluded.bucket THEN limits.count+1 ELSE 1 END RETURNING count`,key,bucket).first();if(row.count>max)fail(429,'사용 횟수 한도에 도달했어요. 잠시 후 다시 시도해 주세요.')},
+ async limit(key,max,windowMs){const bucket=Math.floor(Date.now()/windowMs);const row=await stmt(`INSERT INTO limits(key,bucket,count) VALUES(?,?,1) ON CONFLICT(key) DO UPDATE SET bucket=excluded.bucket,count=CASE WHEN limits.bucket=excluded.bucket THEN limits.count+1 ELSE 1 END RETURNING count`,key,bucket).first();if(row.count>max){let message='사용 횟수 한도에 도달했어요. 잠시 후 다시 시도해 주세요.';if(key.startsWith('ai:cooldown:'))message='연속 요청을 잠시 쉬어 주세요. 5초 뒤 다시 시도할 수 있어요.';else if(key.startsWith('ai:')){const reset=new Date((bucket+1)*windowMs).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit'});message=(key==='ai:global'?'공부방 전체':'내 계정')+'의 하루 AI 요청 '+max+'회 한도에 도달했어요. 다음 한국 시간 '+reset+'에 초기화돼요. OpenAI 잔액 부족과는 별개예요.'}fail(429,message)}},
  async identify(raw){if(!raw||raw.length>100)return null;return stmt('SELECT u.id,u.username,u.name FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.digest=? AND s.expires>?',await digest(raw),Date.now()).first()},
  async register({username,name,password,setupCode,inviteToken}){
   if(!env.PASSWORD_PEPPER||env.PASSWORD_PEPPER.length<32)fail(503,'서버 비밀 설정이 필요해요.');
