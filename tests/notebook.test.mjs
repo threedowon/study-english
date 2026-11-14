@@ -141,3 +141,16 @@ test('upward swipe cancels; small movement and returning to button submit',async
   assert.equal(f.uploads,positions.at(-1)===300?0:1);assert.ok(f.stopped>0);
  }
 });
+
+test('notebook omits category controls and per-note sharing, while editor still opens',()=>{
+ const f=fixture();f.run("navigate('notes')");
+ const html=f.element('#content').innerHTML;
+ assert.doesNotMatch(html,/id="filter"|note-meta|data-share-note/);
+ assert.match(html,/data-edit=/);assert.match(html,/data-delete=/);
+ f.run("openAdd('',state.notes[0])");
+ assert.equal(f.element('#add-dialog').open,true);
+ assert.equal(f.element('#english').value,'I came here by van.');
+ f.run("navigate('review')");
+ assert.doesNotMatch(f.element('#content').innerHTML,/여행|샘플/);
+ assert.match(f.element('#content').innerHTML,/class="ui-icon"/);
+});
