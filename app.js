@@ -71,7 +71,7 @@ async function toWav16k(blob){const AC=window.AudioContext||window.webkitAudioCo
 function ttsElement(){if(!ttsAudio){ttsAudio=new Audio();ttsAudio.preload='auto'}return ttsAudio}
 const canUseAzureVoice=()=>apiAzure&&!STATIC_ONLY&&!!currentUser&&typeof Audio==='function';
 async function azureAudioURL(text,slow,pauses){
- const key=`${slow?'s':'n'}|${text}`;if(ttsMemory.has(key))return ttsMemory.get(key);
+ const key=`${slow?'s75':'n'}|${text}`;if(ttsMemory.has(key))return ttsMemory.get(key);
  const cacheKey=`${location.origin}/__tts/${encodeURIComponent(key)}`;let blob=null;
  try{const cache=await caches.open('tts-v1');const hit=await cache.match(cacheKey);if(hit)blob=await hit.blob()}catch{}
  if(!blob){const response=await fetch(apiURL('/api/tts'),{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-Study-User':currentUser.id},body:JSON.stringify({text,slow,pauses}),signal:AbortSignal.timeout(25000)});if(!response.ok)throw Error('tts');blob=await response.blob();try{const cache=await caches.open('tts-v1');await cache.put(cacheKey,new Response(blob,{headers:{'Content-Type':'audio/mpeg'}}))}catch{}}
@@ -174,7 +174,7 @@ function reviewPage(){
  const words=current.english.split(/\s+/).filter(Boolean),hits=attempt?attempt.words.map(w=>w.hit):[];
  const bars=revealed?'':`<div class="word-bars ${peek?'peeking':''}" aria-label="영어 정답 ${words.length}단어">${words.map((w,i)=>peek?`<span class="word-peek" lang="en">${esc(w)}</span>`:`<span class="word-bar ${hits[i]?'hit':''}" style="width:${Math.min(150,Math.max(12,w.replace(/[^A-Za-z0-9]/g,'').length*12))}px"></span>`).join('')}</div>`;
  const passedNow=revealed&&attempt&&attempt.score>=PASS;
- const ps=attempt?.pron?.scores;const pct=revealed&&attempt?(ps?.pron??Math.round(attempt.score*100)):0,word=!attempt?'Answer':pct>=90?'Great!':pct>=75?'Good!':'Try Again';
+ const ps=attempt?.pron?.scores;const pct=revealed&&attempt?(ps?.pron??Math.round(attempt.score*100)):0,word=!attempt?'Answer':pct>=90?'Great!':pct>=75?'Good!':'Try<br>Again';
  const verdict=revealed?`<div class="verdict-arc ${attempt?(pct>=75?'pass':'retry'):'shown'}"><svg viewBox="0 0 200 110" aria-hidden="true"><defs><linearGradient id="arc-grad" x1="0" x2="1"><stop offset="0" stop-color="#e8fbe9"/><stop offset=".55" stop-color="#8be37b"/><stop offset="1" stop-color="#3fe2a8"/></linearGradient></defs><path class="arc-track" d="M18 102A82 82 0 0 1 182 102"/><path class="arc-fill" d="M18 102A82 82 0 0 1 182 102" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${100-pct}"/></svg><strong>${word}</strong></div><p class="verdict-sub">${ps?`${passedNow?'정답이에요! · ':''}발음 ${ps.pron??'-'}점`:passedNow?`정답이에요! · ${pct}% 일치`:attempt?`${pct}% 일치 · 빨간 단어를 다시 연습해 보세요`:'정답을 확인해 보세요'}</p>${ps?`<div class="score-chips"><span>정확도 <b>${ps.accuracy??'-'}</b></span><span>유창성 <b>${ps.fluency??'-'}</b></span>${ps.prosody!=null?`<span>억양·리듬 <b>${ps.prosody}</b></span>`:''}</div>`:''}`:'';
  const stage=revealed?`<div class="speak-stage result-stage">${verdict}<p class="answer-en ${current.english.length>36?'long':''}" lang="en">${attempt?.pron?.scores?pronHTML(current.english,attempt.pron):highlighted(attempt?attempt.words:current.english.split(/\s+/).filter(Boolean).map(text=>({text})))}</p><p class="prompt-sub">${prompt}</p>${current.guide&&current.guide.for===current.english?guideHTML(current.guide):(!STATIC_ONLY&&currentUser&&apiConfigured!==false?'<p class="guide-loading">말하는 법 불러오는 중…</p>':'')}</div>`:`<div class="speak-stage"><button class="listen-btn" data-speak="${esc(current.id)}" aria-label="영어 문장 듣기">${ui('speaker')}</button>${bars}<h2 class="prompt-ko">${prompt}</h2></div>`;
  return `${head}<section class="review-card">${stage}${body}</section>`;
@@ -306,7 +306,7 @@ document.addEventListener('click',e=>{
  if(b.id==='retry-card'){attempt=null;revealed=false;answerDraft='';answerNotice='';render()}
  if(b.id==='next-card')rate(autoRating());
  if(b.dataset?.sayWord)playEnglish(b.dataset.sayWord.replace(/[^A-Za-z0-9' -]/g,''));
- if(b.dataset?.speakSlow){const n=state.notes.find(x=>x.id===b.dataset.speakSlow);if(n)playEnglish(n.english,{rate:.55})}
+ if(b.dataset?.speakSlow){const n=state.notes.find(x=>x.id===b.dataset.speakSlow);if(n)playEnglish(n.english,{rate:.75})}
  if(b.id==='play-mine'){if('speechSynthesis' in window)speechSynthesis.cancel();const audio=$('#my-audio');if(audio){audio.currentTime=0;audio.play().catch(()=>toast('녹음을 재생하지 못했어요.'))}}
 });
 document.addEventListener('keydown',e=>{

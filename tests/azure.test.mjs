@@ -14,7 +14,7 @@ test('assessment response is reduced to scores and words',()=>{
 });
 test('SSML escapes text, adds guide pauses and slows down on request',()=>{
  const x=buildSsml('Tom & Jerry, <hi> there',{slow:true,pauses:[2]});
- assert.match(x,/Tom &amp; Jerry, <break time="220ms"\/> &lt;hi&gt; there/);assert.match(x,/rate="-40%"/);assert.match(x,/en-US-AvaNeural/);
+ assert.match(x,/Tom &amp; Jerry, <break time="220ms"\/> &lt;hi&gt; there/);assert.match(x,/rate="-25%"/);assert.match(x,/en-US-AvaNeural/);
 });
 test('assessment request carries key, WAV type and base64 parameters',async()=>{
  let seen;const request=async(url,init)=>{seen={url,init};return {ok:true,status:200,json:async()=>sample}};

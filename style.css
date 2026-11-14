@@ -420,3 +420,5 @@ dialog textarea{min-height:56px;overflow-y:auto}
 .score-chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
 .score-chips span{font-size:12px;color:var(--muted);background:var(--surface);border-radius:999px;padding:5px 10px}
 .score-chips b{color:var(--text);font-weight:700;margin-left:2px}
+.verdict-arc strong{font-size:28px;line-height:1.05;text-align:center;padding-bottom:6px;max-width:130px}
+.result-stage .verdict-arc{width:190px;height:104px}
