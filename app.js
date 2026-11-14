@@ -71,7 +71,7 @@ function playEnglish(text,{voiceURI=state.voiceURI,rate=state.speechRate}={}){
   const utterance=new SpeechSynthesisUtterance(text);
   if(voice)utterance.voice=voice;
   utterance.lang=voice?.lang||'en-US';
-  utterance.rate=Math.max(.75,Math.min(1.2,Number(rate)||1));
+  utterance.rate=Math.max(.5,Math.min(1.2,Number(rate)||1));
   utterance.onerror=e=>{if(!['interrupted','canceled'].includes(e.error))toast('음성을 재생하지 못했어요. 다른 목소리를 선택해 주세요.')};
   speechSynthesis.speak(utterance);
 }
@@ -266,7 +266,7 @@ document.addEventListener('click',e=>{
  if(b.id==='retry-card'){attempt=null;revealed=false;answerDraft='';answerNotice='';render()}
  if(b.id==='next-card')rate(autoRating());
  if(b.dataset?.sayWord)playEnglish(b.dataset.sayWord.replace(/[^A-Za-z0-9' -]/g,''));
- if(b.dataset?.speakSlow){const n=state.notes.find(x=>x.id===b.dataset.speakSlow);if(n)playEnglish(n.english,{rate:.75})}
+ if(b.dataset?.speakSlow){const n=state.notes.find(x=>x.id===b.dataset.speakSlow);if(n)playEnglish(n.english,{rate:.55})}
  if(b.id==='play-mine'){if('speechSynthesis' in window)speechSynthesis.cancel();const audio=$('#my-audio');if(audio){audio.currentTime=0;audio.play().catch(()=>toast('녹음을 재생하지 못했어요.'))}}
 });
 document.addEventListener('keydown',e=>{
