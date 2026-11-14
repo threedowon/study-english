@@ -13,15 +13,16 @@ export default {async fetch(req,env){
  try{
   if(!new URL(req.url).pathname.startsWith('/api/'))return env.ASSETS?env.ASSETS.fetch(req):new Response('Not found',{status:404});
   const origin=req.headers.get('Origin');if(!env.FRONTEND_ORIGIN||!env.DB)fail(503,'서버 연결 설정이 필요해요.');
-  if(origin&&origin!==env.FRONTEND_ORIGIN)fail(403,'허용되지 않은 웹 주소예요.');
+  const allowedOrigin=!!origin&&[env.FRONTEND_ORIGIN,env.ADDITIONAL_FRONTEND_ORIGIN].filter(Boolean).includes(origin);
+  if(origin&&!allowedOrigin)fail(403,'허용되지 않은 웹 주소예요.');
   if(origin){headers['Access-Control-Allow-Origin']=origin;headers['Access-Control-Allow-Credentials']='true'}
   if(req.method==='OPTIONS'){
    const fields=(req.headers.get('Access-Control-Request-Headers')||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean);
-   if(origin!==env.FRONTEND_ORIGIN||!['GET','POST'].includes(req.headers.get('Access-Control-Request-Method'))||fields.some(x=>!['content-type','x-study-user'].includes(x)))fail(403,'허용되지 않은 요청이에요.');
+   if(!allowedOrigin||!['GET','POST'].includes(req.headers.get('Access-Control-Request-Method'))||fields.some(x=>!['content-type','x-study-user'].includes(x)))fail(403,'허용되지 않은 요청이에요.');
    return reply(204,null,{'Access-Control-Allow-Methods':'GET, POST','Access-Control-Allow-Headers':'Content-Type, X-Study-User','Access-Control-Max-Age':'600'});
   }
   if(!['GET','POST'].includes(req.method))fail(405,'허용되지 않은 요청이에요.');
-  if(req.method==='POST'&&origin!==env.FRONTEND_ORIGIN)fail(403,'웹 화면에서 다시 시도해 주세요.');
+  if(req.method==='POST'&&!allowedOrigin)fail(403,'웹 화면에서 다시 시도해 주세요.');
   const path=new URL(req.url).pathname;
   if(path==='/api/status'&&req.method==='GET')return reply(200,{configured:!!env.OPENAI_API_KEY,inviteOnly:true});
   const store=socialStore(env.DB,env);
