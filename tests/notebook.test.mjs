@@ -153,3 +153,16 @@ test('notebook omits category controls and per-note sharing, while editor still 
  assert.doesNotMatch(f.element('#content').innerHTML,/여행|샘플/);
  assert.match(f.element('#content').innerHTML,/class="ui-icon"/);
 });
+test('pronunciation scores colour words and show score chips on the result',()=>{
+ const f=fixture();f.run("navigate('review')");
+ const pron={text:'I came here by van.',scores:{pron:82,accuracy:85,fluency:90,completeness:100,prosody:76},words:[
+  {word:'i',accuracy:98,error:'None',syllables:[{grapheme:'i',accuracy:98}]},
+  {word:'came',accuracy:70,error:'None',syllables:[{grapheme:'came',accuracy:70}]},
+  {word:'here',accuracy:45,error:'Mispronunciation',syllables:[]},
+  {word:'by',accuracy:90,error:'None',syllables:[]},
+  {word:'van',accuracy:88,error:'None',syllables:[]}]};
+ f.run(`submitAnswer(['I came here by van.'],${JSON.stringify(pron)})`);
+ const html=f.element('#content').innerHTML;
+ assert.match(html,/Good!/);assert.match(html,/발음 82점/);assert.match(html,/score-chips/);
+ assert.match(html,/word-say fair[^>]*>came/);assert.match(html,/word-say poor[^>]*>here/);assert.match(html,/word-say good[^>]*>van\./);
+});

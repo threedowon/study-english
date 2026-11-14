@@ -64,7 +64,29 @@ function englishVoices(){
   return speechSynthesis.getVoices().filter(v=>/^en(?:-|_)/i.test(v.lang)).sort((a,b)=>score(b)-score(a)||a.name.localeCompare(b.name));
 }
 function voiceOptions(){const voices=englishVoices();return `<option value="">자동 선택${voices.length?' · '+esc(voices[0].name):' · 브라우저 기본 음성'}</option>`+voices.map(v=>`<option value="${esc(v.voiceURI)}" ${state.voiceURI===v.voiceURI?'selected':''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('')}
-function playEnglish(text,{voiceURI=state.voiceURI,rate=state.speechRate}={}){
+// ---- native voice (Azure neural TTS) with on-device cache; falls back to the browser voice ----
+const ttsMemory=new Map();let ttsAudio=null,ttsSeq=0;
+function wavBytes(samples,rate){const buf=new ArrayBuffer(44+samples.length*2),v=new DataView(buf),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};w(0,'RIFF');v.setUint32(4,36+samples.length*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,samples.length*2,true);for(let i=0;i<samples.length;i++){const x=Math.max(-1,Math.min(1,samples[i]));v.setInt16(44+i*2,x<0?x*0x8000:x*0x7fff,true)}return new Uint8Array(buf)}
+async function toWav16k(blob){const AC=window.AudioContext||window.webkitAudioContext,OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;if(!AC||!OAC)throw Error('wav');const ctx=new AC();try{const decoded=await ctx.decodeAudioData(await blob.arrayBuffer());const frames=Math.max(1,Math.ceil(decoded.duration*16000));const off=new OAC(1,frames,16000);const src=off.createBufferSource();src.buffer=decoded;src.connect(off.destination);src.start();const out=await off.startRendering();return new Blob([wavBytes(out.getChannelData(0),16000)],{type:'audio/wav'})}finally{ctx.close?.().catch?.(()=>{})}}
+function ttsElement(){if(!ttsAudio){ttsAudio=new Audio();ttsAudio.preload='auto'}return ttsAudio}
+const canUseAzureVoice=()=>apiAzure&&!STATIC_ONLY&&!!currentUser&&typeof Audio==='function';
+async function azureAudioURL(text,slow,pauses){
+ const key=`${slow?'s':'n'}|${text}`;if(ttsMemory.has(key))return ttsMemory.get(key);
+ const cacheKey=`${location.origin}/__tts/${encodeURIComponent(key)}`;let blob=null;
+ try{const cache=await caches.open('tts-v1');const hit=await cache.match(cacheKey);if(hit)blob=await hit.blob()}catch{}
+ if(!blob){const response=await fetch(apiURL('/api/tts'),{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-Study-User':currentUser.id},body:JSON.stringify({text,slow,pauses}),signal:AbortSignal.timeout(25000)});if(!response.ok)throw Error('tts');blob=await response.blob();try{const cache=await caches.open('tts-v1');await cache.put(cacheKey,new Response(blob,{headers:{'Content-Type':'audio/mpeg'}}))}catch{}}
+ const url=URL.createObjectURL(blob);ttsMemory.set(key,url);return url;
+}
+function playEnglish(text,options={}){
+ if(!canUseAzureVoice())return playBrowserVoice(text,options);
+ const slow=(Number(options.rate)||Number(state.speechRate)||1)<.8;const note=state.notes.find(n=>n.english===text);const pauses=note?.guide?.for===text?note.guide.words.map((w,i)=>w.pause?i:-1).filter(i=>i>=0):[];
+ if('speechSynthesis' in window)speechSynthesis.cancel();
+ const audio=ttsElement(),seq=++ttsSeq;audio.pause();
+ // Start playback inside the tap so iOS keeps the element unlocked for the async load.
+ if(!audio.dataset.unlocked){audio.src=URL.createObjectURL(new Blob([wavBytes(new Float32Array(160),16000)],{type:'audio/wav'}));audio.play().catch(()=>{});audio.dataset.unlocked='1'}
+ azureAudioURL(text,slow,pauses).then(url=>{if(seq!==ttsSeq)return;audio.src=url;audio.currentTime=0;return audio.play()}).catch(()=>{if(seq===ttsSeq)playBrowserVoice(text,options)});
+}
+function playBrowserVoice(text,{voiceURI=state.voiceURI,rate=state.speechRate}={}){
   if(!('speechSynthesis' in window))return toast('이 브라우저에서는 음성 재생을 지원하지 않아요.');
   speechSynthesis.cancel();
   const voices=englishVoices(),voice=voices.find(v=>v.voiceURI===voiceURI)||voices[0];
@@ -105,7 +127,19 @@ function currentCard(){const q=reviewQueue();const card=q.find(n=>n.id===reviewI
 function intervalLabel(days){return days===0?'오늘 다시':days===1?'내일':days<30?`${days}일 후`:`${Math.round(days/30*10)/10}개월 후`}
 function suggested(){return attempt&&attempt.score>=PASS?'good':'again'}
 function highlighted(words){return words.map(w=>`<button type="button" class="word-say ${w.hit===undefined?'':w.hit?'hit':'miss'}" data-say-word="${esc(w.text)}">${esc(w.text)}</button>`).join(' ')}
-const autoRating=()=>attempt&&attempt.score>=0.8?'good':'again';
+const autoRating=()=>attempt&&attempt.score>=0.8&&(!attempt.pron?.scores?.pron||attempt.pron.scores.pron>=60)?'good':'again';
+const tone=a=>a==null?'':a>=80?'good':a>=60?'fair':'poor';
+function pronHTML(english,pron){
+ const display=english.split(/\s+/).filter(Boolean),spoken=(pron.words||[]).filter(w=>w.error!=='Insertion');
+ if(spoken.length!==display.length)return highlighted(display.map(text=>({text})));
+ return display.map((text,i)=>{const w=spoken[i],letters=text.replace(/[^A-Za-z0-9']/g,'');
+  if(w.error==='Omission')return `<button type="button" class="word-say omit" data-say-word="${esc(text)}">${esc(text)}</button>`;
+  const sy=w.syllables||[],joined=sy.map(x=>x.grapheme).join('');
+  let inner=esc(text);
+  if(sy.length>1&&joined.toLowerCase()===letters.toLowerCase()){let pos=0,html='',rest=text;const start=text.search(/[A-Za-z0-9']/);html=esc(text.slice(0,Math.max(0,start)));pos=Math.max(0,start);
+   for(const x of sy){html+=`<span class="${tone(x.accuracy)}">${esc(text.slice(pos,pos+x.grapheme.length))}</span>`;pos+=x.grapheme.length}inner=html+esc(text.slice(pos))}
+  return `<button type="button" class="word-say ${sy.length>1&&joined.toLowerCase()===letters.toLowerCase()?'':tone(w.accuracy)}" data-say-word="${esc(text)}" title="정확도 ${w.accuracy??'-'}">${inner}</button>`}).join(' ');
+}
 function guideHTML(g){if(!g)return '';const arrow={rise:'↗',fall:'↘','rise-fall':'↗↘'}[g.intonation]||'';return `<div class="say-guide"><p class="guide-line" lang="en">${g.words.map((w,i)=>`<span class="gw ${w.focus?'focus':''}">${w.syllables.map((sy,k)=>k===w.stress?`<b>${esc(sy)}</b>`:esc(sy)).join('<i>·</i>')}</span>${w.link&&i<g.words.length-1?'<span class="link">‿</span>':''}${w.pause?'<span class="pause">|</span>':''}`).join(' ')} <span class="tone">${arrow}</span></p>${g.tip?`<p class="guide-tip">${esc(g.tip)}</p>`:''}</div>`}
 let guideBusy=new Set();
 async function ensureGuide(note){
@@ -140,9 +174,9 @@ function reviewPage(){
  const words=current.english.split(/\s+/).filter(Boolean),hits=attempt?attempt.words.map(w=>w.hit):[];
  const bars=revealed?'':`<div class="word-bars ${peek?'peeking':''}" aria-label="영어 정답 ${words.length}단어">${words.map((w,i)=>peek?`<span class="word-peek" lang="en">${esc(w)}</span>`:`<span class="word-bar ${hits[i]?'hit':''}" style="width:${Math.min(150,Math.max(12,w.replace(/[^A-Za-z0-9]/g,'').length*12))}px"></span>`).join('')}</div>`;
  const passedNow=revealed&&attempt&&attempt.score>=PASS;
- const pct=revealed&&attempt?Math.round(attempt.score*100):0,word=!attempt?'Answer':pct>=90?'Great!':pct>=75?'Good!':'Try Again';
- const verdict=revealed?`<div class="verdict-arc ${attempt?(pct>=75?'pass':'retry'):'shown'}"><svg viewBox="0 0 200 110" aria-hidden="true"><defs><linearGradient id="arc-grad" x1="0" x2="1"><stop offset="0" stop-color="#e8fbe9"/><stop offset=".55" stop-color="#8be37b"/><stop offset="1" stop-color="#3fe2a8"/></linearGradient></defs><path class="arc-track" d="M18 102A82 82 0 0 1 182 102"/><path class="arc-fill" d="M18 102A82 82 0 0 1 182 102" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${100-pct}"/></svg><strong>${word}</strong></div><p class="verdict-sub">${passedNow?`정답이에요! · ${pct}% 일치`:attempt?`${pct}% 일치 · 빨간 단어를 다시 연습해 보세요`:'정답을 확인해 보세요'}</p>`:'';
- const stage=revealed?`<div class="speak-stage result-stage">${verdict}<p class="answer-en ${current.english.length>36?'long':''}" lang="en">${highlighted(attempt?attempt.words:current.english.split(/\s+/).filter(Boolean).map(text=>({text})))}</p><p class="prompt-sub">${prompt}</p>${current.guide&&current.guide.for===current.english?guideHTML(current.guide):(!STATIC_ONLY&&currentUser&&apiConfigured!==false?'<p class="guide-loading">말하는 법 불러오는 중…</p>':'')}</div>`:`<div class="speak-stage"><button class="listen-btn" data-speak="${esc(current.id)}" aria-label="영어 문장 듣기">${ui('speaker')}</button>${bars}<h2 class="prompt-ko">${prompt}</h2></div>`;
+ const ps=attempt?.pron?.scores;const pct=revealed&&attempt?(ps?.pron??Math.round(attempt.score*100)):0,word=!attempt?'Answer':pct>=90?'Great!':pct>=75?'Good!':'Try Again';
+ const verdict=revealed?`<div class="verdict-arc ${attempt?(pct>=75?'pass':'retry'):'shown'}"><svg viewBox="0 0 200 110" aria-hidden="true"><defs><linearGradient id="arc-grad" x1="0" x2="1"><stop offset="0" stop-color="#e8fbe9"/><stop offset=".55" stop-color="#8be37b"/><stop offset="1" stop-color="#3fe2a8"/></linearGradient></defs><path class="arc-track" d="M18 102A82 82 0 0 1 182 102"/><path class="arc-fill" d="M18 102A82 82 0 0 1 182 102" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${100-pct}"/></svg><strong>${word}</strong></div><p class="verdict-sub">${ps?`${passedNow?'정답이에요! · ':''}발음 ${ps.pron??'-'}점`:passedNow?`정답이에요! · ${pct}% 일치`:attempt?`${pct}% 일치 · 빨간 단어를 다시 연습해 보세요`:'정답을 확인해 보세요'}</p>${ps?`<div class="score-chips"><span>정확도 <b>${ps.accuracy??'-'}</b></span><span>유창성 <b>${ps.fluency??'-'}</b></span>${ps.prosody!=null?`<span>억양·리듬 <b>${ps.prosody}</b></span>`:''}</div>`:''}`:'';
+ const stage=revealed?`<div class="speak-stage result-stage">${verdict}<p class="answer-en ${current.english.length>36?'long':''}" lang="en">${attempt?.pron?.scores?pronHTML(current.english,attempt.pron):highlighted(attempt?attempt.words:current.english.split(/\s+/).filter(Boolean).map(text=>({text})))}</p><p class="prompt-sub">${prompt}</p>${current.guide&&current.guide.for===current.english?guideHTML(current.guide):(!STATIC_ONLY&&currentUser&&apiConfigured!==false?'<p class="guide-loading">말하는 법 불러오는 중…</p>':'')}</div>`:`<div class="speak-stage"><button class="listen-btn" data-speak="${esc(current.id)}" aria-label="영어 문장 듣기">${ui('speaker')}</button>${bars}<h2 class="prompt-ko">${prompt}</h2></div>`;
  return `${head}<section class="review-card">${stage}${body}</section>`;
 }
 function stopAnswer(){
@@ -151,9 +185,9 @@ function stopAnswer(){
  if(session.recorder?.state==='recording')try{session.recorder.stop()}catch{}
  session.stream?.getTracks().forEach(track=>track.stop());
 }
-function submitAnswer(alternatives){
+function submitAnswer(alternatives,pron=null){
  const note=state.notes.find(n=>n.id===reviewId);if(!note||revealed)return;
- tries++;attempt=bestGrade(note.english,alternatives.filter(Boolean));
+ tries++;attempt=bestGrade(note.english,alternatives.filter(Boolean));if(pron?.scores)attempt.pron=pron;
  if(attempt.score>=PASS){revealed=true;render();playEnglish(note.english)}else render();
 }
 function setAnswerNotice(text){
@@ -229,6 +263,12 @@ async function finishHoldAnswer(session){
  answerAudioURL=URL.createObjectURL(blob);session.controller=new AbortController();session.timer=setTimeout(()=>session.controller.abort(),50000);
  render();
  try{
+  const note=state.notes.find(n=>n.id===session.noteId);
+  if(apiAzure&&note){
+   let assessed=null;
+   try{const wav=await toWav16k(blob);const r=await fetch(apiURL('/api/assess?text='+encodeURIComponent(note.english)),{method:'POST',credentials:'include',headers:{'Content-Type':'audio/wav','X-Study-User':session.owner},body:wav,signal:session.controller.signal});const data=await r.json().catch(()=>null);if(r.ok&&data)assessed=data;else if(r.status===429&&data?.error)toast(data.error)}catch(error){if(error.name==='AbortError')throw error}
+   if(assessed&&assessed.text){if(!active())return;holdSession=null;answerDraft=assessed.text.trim();answerNotice='';submitAnswer([answerDraft],assessed);return}
+  }
   const response=await fetch(apiURL('/api/transcribe'),{method:'POST',credentials:'include',headers:{'Content-Type':blob.type,'X-Study-User':session.owner},body:blob,signal:session.controller.signal});
   let result;try{result=await response.json()}catch{throw Error('음성 인식 서버에 연결하지 못했어요.')}
   if(!response.ok)throw Error(result.error||'음성 인식에 실패했어요.');
@@ -310,7 +350,7 @@ document.addEventListener('keydown',e=>{
  else if(revealed&&(e.key==='r'||e.key==='R')){attempt=null;revealed=false;answerDraft='';render()}
 });
 
-let lessonDraft='',lessonResult=null,organizing=false,lessonError='',selectedExpressions=new Set(),apiConfigured=null;
+let lessonDraft='',lessonResult=null,organizing=false,lessonError='',selectedExpressions=new Set(),apiConfigured=null,apiAzure=false;
 let recorder=null,recordingStream=null,recordingURL='',recordingTimer=null,recordingStarting=false,recordingGeneration=0;
 function recorderPanel(){return `<section class="editor recording-panel"><strong>내 목소리로 연습하기</strong><p class="helper">최대 60초 녹음 후 다시 들어보세요. 서버로 전송되지 않아요.<br>자동 발음 평가는 아직 지원하지 않아요. 화면을 나가면 녹음은 삭제돼요.</p><button class="button" id="record-audio">${recorder?'■ 녹음 마치기':'● 녹음 시작'}</button><span id="record-state" class="helper" role="status"></span><div id="record-playback">${recordingURL?`<audio controls src="${recordingURL}" aria-label="내 녹음 다시 듣기"></audio><a class="text-btn" href="${recordingURL}" download="english-practice.webm">녹음 다운로드</a>`:''}</div></section>`}
 function saveLesson(){if(!lessonDraft.trim())return false;state.lessons??=[];if(!state.lessons.some(x=>x.text===lessonDraft))state.lessons.unshift({id:crypto.randomUUID(),date:dayKey(),text:lessonDraft});persist();return true}
@@ -360,7 +400,7 @@ document.addEventListener('click',e=>{
  }
 });
 window.addEventListener('pagehide',()=>stopRecording(true));
-if(!STATIC_ONLY)fetch(apiURL('/api/status'),{credentials:'include'}).then(r=>r.ok?r.json():null).then(data=>{if(data){apiConfigured=data.configured;if(page==='lesson'&&!organizing&&!recorder)render()}}).catch(()=>{});
+if(!STATIC_ONLY)fetch(apiURL('/api/status'),{credentials:'include'}).then(r=>r.ok?r.json():null).then(data=>{if(data){apiConfigured=data.configured;apiAzure=data.azure===true;if(page==='lesson'&&!organizing&&!recorder)render()}}).catch(()=>{});
 
 let accountLoading=true,currentUser=null,studyVersion=0,syncStatus='저장됨',saveChain=Promise.resolve(),saveBlocked=false,accountBusy=false;
 let accountMode='login';

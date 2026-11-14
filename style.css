@@ -412,3 +412,11 @@ dialog textarea{min-height:56px;overflow-y:auto}
 .note-row .note-actions .ui-icon{width:19px;height:19px}
 .note-row .note-body{display:block;padding-top:4px}
 .note-row .note-body p{clear:none}
+/* pronunciation colours (Azure) */
+.word-say.good,.word-say .good{color:#5ed27b}
+.word-say.fair,.word-say .fair{color:#f3c86b}
+.word-say.poor,.word-say .poor{color:#f05a4f}
+.word-say.omit{color:#6b7078;text-decoration:line-through}
+.score-chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.score-chips span{font-size:12px;color:var(--muted);background:var(--surface);border-radius:999px;padding:5px 10px}
+.score-chips b{color:var(--text);font-weight:700;margin-left:2px}
