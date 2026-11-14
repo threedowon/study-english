@@ -1,6 +1,12 @@
 # 무료 플랜 배포 안내
 
-Cloudflare **Workers Free** 계정 하나와 D1 데이터베이스 하나를 사용합니다. 별도 서버 임대, 지속 디스크 요금, R2/유료 Workers 플랜은 필요하지 않습니다. 이 문서는 실제 배포 완료를 의미하지 않습니다.
+Cloudflare **Workers Free** 계정 하나와 D1 데이터베이스 하나를 사용합니다. 별도 서버 임대, 지속 디스크 요금, R2/유료 Workers 플랜은 필요하지 않습니다. 2026-11-14: study-english D1과 표/인덱스/트리거를 생성했고 GitHub 연결 빌드를 배포했습니다. 로그인용 비밀값과 OpenAI 키 등록 및 실제 계정 검증은 아직 남아 있습니다.
+
+현재 배포 설정은 `cloudflare/wrangler.jsonc`이며 DB ID는 비밀값이 아닙니다. 현재 DB에는 이미 스키마가 적용되어 있으므로 아래 초기 마이그레이션 명령을 다시 실행하지 마세요. 아래 절차는 새 계정/새 DB에 처음 설치할 때의 안내입니다.
+
+웹 주소: https://study-english-api.qkryewon.workers.dev
+
+Cloudflare 빌드: `WORKER_ASSETS=1 npm run build:pages` / 배포: `npx wrangler@4 deploy --config cloudflare/wrangler.jsonc`. main 업데이트는 자동 배포됩니다.
 
 ## 1. 계정 연결과 데이터베이스 만들기
 

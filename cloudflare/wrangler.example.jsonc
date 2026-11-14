@@ -3,6 +3,7 @@
   "main": "worker.mjs",
   "compatibility_date": "2026-11-14",
   "workers_dev": true,
+  "preview_urls": false,
   "vars": {
     "FRONTEND_ORIGIN": "https://study-english-api.YOUR_SUBDOMAIN.workers.dev",
     "OPENAI_MODEL": "gpt-6-luna"
