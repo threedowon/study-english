@@ -412,3 +412,4 @@ dialog textarea{min-height:56px;overflow-y:auto}
 .note-row .note-actions .ui-icon{width:19px;height:19px}
 .note-row .note-body{display:block;padding-top:4px}
 .note-row .note-body p{clear:none}
+.voice-panel>.heard,#heard{display:none!important}
