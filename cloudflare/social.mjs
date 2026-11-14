@@ -22,7 +22,7 @@ export function socialStore(db,env){
   if(!env.PASSWORD_PEPPER||env.PASSWORD_PEPPER.length<32)fail(503,'서버 비밀 설정이 필요해요.');
   if(typeof username!=='string'||!/^[-a-z0-9_]{3,32}$/.test(username))fail(400,'아이디는 영문 소문자·숫자·밑줄·하이픈 3~32자로 입력하세요.');
   if(typeof name!=='string'||!name.trim()||name.length>40)fail(400,'이름은 1~40자로 입력하세요.');
-  if(typeof password!=='string'||password.length<12||password.length>128)fail(400,'비밀번호는 12~128자로 입력하세요.');
+  if(typeof password!=='string'||password.length<10||password.length>128)fail(400,'비밀번호는 10~128자로 입력하세요.');
   const owner=await stmt("SELECT value FROM settings WHERE key='owner'").first();
   let invitation=null;
   if(!owner){if(!env.SETUP_CODE||env.SETUP_CODE.length<32||!equal(String(setupCode||''),env.SETUP_CODE))fail(403,'최초 가입에는 운영자 설정 코드가 필요해요.');}

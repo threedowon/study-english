@@ -61,3 +61,4 @@ test('Worker AI uses server secret, explicit calls and persistent cooldown',asyn
   assert.equal((await worker.fetch(req(),env)).status,429);assert.equal(calls,1);
  }finally{globalThis.fetch=original;db.close()}
 });
+test('D1 registration accepts ten characters with symbols and rejects nine',async()=>{const db=database(),env=envFor(db),s=socialStore(db,env);try{await assert.rejects(s.register({...signup,password:'Ab1!xyz89',setupCode:env.SETUP_CODE}),{status:400});const a=await s.register({...signup,password:'Ab1!xyz890',setupCode:env.SETUP_CODE});assert.equal((await s.login({username:signup.username,password:'Ab1!xyz890'})).user.id,a.user.id)}finally{db.close()}});
