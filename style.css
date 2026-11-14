@@ -358,3 +358,11 @@ body[data-page=review] .speak-stage{flex:1;min-height:0}
 body[data-page=review] .speak-stage.result-stage{flex:1;justify-content:center}
 body[data-page=review] .review-card>.give-up{margin-bottom:4px}
 body[data-page=review] .done-card{margin:auto 0}
+/* equal-sized round controls: listen, mic, cancel share one size and one glyph size */
+.listen-btn,.mic-symbol,.ctrl{width:76px;height:76px}
+.listen-btn .ui-icon,.mic-symbol .ui-icon,.ctrl .ui-icon{width:30px;height:30px}
+.control-row{grid-template-columns:76px 76px 76px;gap:24px}
+.ctrl.spacer{visibility:hidden}
+.ring{inset:-5px;width:calc(100% + 10px);height:calc(100% + 10px)}
+.check-btn{width:48px;min-width:48px;padding:0}
+.check-btn .ui-icon{width:22px;height:22px;stroke-width:2.6}

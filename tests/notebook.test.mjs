@@ -119,11 +119,10 @@ test('cancel button discards the recording without uploading',async()=>{
  await f.dispatch('click',{target:{closest:()=>({id:'cancel-answer',dataset:{},matches:()=>false})},preventDefault(){}});await settle();
  assert.ok(f.stopped>0);assert.equal(f.uploads,0);assert.equal(f.run('holdSession'),null);
 });
-test('eye button peeks at the hidden answer words',async()=>{
+test('review hides the answer as word bars without an eye button',()=>{
  const f=fixture();f.run("navigate('review')");
- assert.match(f.element('#content').innerHTML,/word-bar/);assert.doesNotMatch(f.element('#content').innerHTML,/영어로는/);
- await f.dispatch('click',{target:{closest:()=>({id:'peek-answer',dataset:{},matches:()=>false})},preventDefault(){}});
- assert.match(f.element('#content').innerHTML,/word-peek/);
+ const html=f.element('#content').innerHTML;
+ assert.match(html,/word-bar/);assert.doesNotMatch(html,/영어로는|peek-answer/);
 });
 
 test('preparing microphone closes the stream without recording or uploading',async()=>{
