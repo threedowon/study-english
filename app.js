@@ -103,7 +103,7 @@ function suggested(){return attempt&&attempt.score>=PASS?'good':'again'}
 function highlighted(words){return words.map(w=>`<span class="${w.hit?'hit':'miss'}">${esc(w.text)}</span>`).join(' ')}
 function reviewPage(){
  const current=currentCard();const left=reviewQueue().length;
- const head=`<div class="review-top"><span>${left?`${left}개 남음`:'완료'}${reviewed?` · ${reviewed}개 끝냄`:''}</span><div class="bar"><span style="width:${Math.round(reviewed/Math.max(1,reviewed+left)*100)}%"></span></div></div>`;
+ const head=`<div class="review-top"><button class="icon-btn close-review" data-page="home" aria-label="복습 닫기">${ui('x')}</button><div class="bar"><span style="width:${Math.round(reviewed/Math.max(1,reviewed+left)*100)}%"></span></div><span class="review-count">${left?`${left}개 남음`:'완료'}</span></div>`;
  if(!current)return `${head}<section class="card done-card"><span class="done-badge">${ui('crown')}</span><h2>${state.notes.length?'오늘 복습 끝!':'첫 표현을 담아볼까요?'}</h2><p class="helper">${state.notes.length?'내일 다시 만나요.':'표현을 저장하면 여기서 말하며 복습해요.'}</p><button class="pill primary block" data-page="notes">${ui('bookmark')}새 표현 담기</button></section>`;
  const listening=holdSession?.noteId===current.id&&holdSession.phase==='recording';
  const processing=holdSession?.noteId===current.id&&holdSession.phase==='processing';

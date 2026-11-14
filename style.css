@@ -343,3 +343,18 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:0}
 .voice-panel>#answer-notice{grid-row:4;margin-top:8px}
 .speak-tip{margin:0 0 16px}
 .voice-wave{height:44px}
+/* ---- full-screen review (no top bar / tab bar) ---- */
+body[data-page=review] .topbar,body[data-page=review] .tabbar{display:none}
+body[data-page=review] .shell{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+body[data-page=review] #content{min-height:100vh;min-height:100dvh;padding-top:calc(8px + env(safe-area-inset-top));gap:0}
+body[data-page=review] #toast{bottom:calc(24px + env(safe-area-inset-bottom))}
+.review-top{flex-direction:row;align-items:center;gap:12px;height:56px}
+.close-review{width:44px;height:44px;margin-left:-8px;color:var(--text)}
+.close-review .ui-icon{width:26px;height:26px}
+.review-top .bar{flex:1}
+.review-count{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+body[data-page=review] .review-card{flex:1;display:flex;flex-direction:column;gap:14px}
+body[data-page=review] .speak-stage{flex:1;min-height:0}
+body[data-page=review] .speak-stage.result-stage{flex:1;justify-content:center}
+body[data-page=review] .review-card>.give-up{margin-bottom:4px}
+body[data-page=review] .done-card{margin:auto 0}
