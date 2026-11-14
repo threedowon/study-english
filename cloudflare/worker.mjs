@@ -1,6 +1,7 @@
 import {aiError} from '../lib/ai-error.mjs';
 import {MAX_AUDIO_BYTES,audioType,transcribeAudio} from '../lib/transcription.mjs';
 import {socialStore,digest,fail} from './social.mjs';
+import {guideRequest,cleanGuide} from '../lib/guide.mjs';
 const cookie=(token,age=604800)=>`study_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${age}`;
 async function bodyOf(req){
  if(!req.headers.get('content-type')?.startsWith('application/json'))fail(415,'JSON 요청이 필요해요.');
@@ -60,6 +61,16 @@ export default {async fetch(req,env){
   if(path==='/api/social'&&req.method==='GET')return reply(200,await store.social(user.id));
   const actions={'/api/social/invite':()=>store.invite(user.id),'/api/social/accept':()=>store.accept(user.id,body.token),'/api/social/revoke':()=>store.revoke(user.id,body.id),'/api/social/disconnect':()=>store.disconnect(user.id,body.id),'/api/social/copy':()=>store.copy(user.id,body.ownerId,body.id)};
   if(actions[path]&&req.method==='POST')return reply(200,await actions[path]());
+  if(path==='/api/guide'&&req.method==='POST'){
+   if(!await store.aiEligible(user.id))fail(403,'운영자의 공부방에 연결된 계정만 사용할 수 있어요.');
+   if(!env.OPENAI_API_KEY)fail(503,'운영자가 AI 키를 연결해야 해요.');
+   const text=typeof body.text==='string'?body.text.trim():'';if(!text||text.length>300)fail(400,'문장을 1~300자로 보내 주세요.');
+   await store.limit('ai:global',200,86400000);await store.limit('ai:guide:'+user.id,80,86400000);
+   const response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${env.OPENAI_API_KEY}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(45000),body:JSON.stringify(guideRequest(env.OPENAI_MODEL||'gpt-6-luna',text))});
+   if(!response.ok)throw await aiError(response);
+   const data=await response.json();if(data.status==='incomplete')fail(502,'AI 응답을 완료하지 못했어요.');
+   try{return reply(200,cleanGuide(JSON.parse((data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join('')),text))}catch{fail(502,'말하는 법 가이드를 만들지 못했어요.')}
+  }
   if(['/api/organize','/api/vocabulary'].includes(path)&&req.method==='POST'){
    const vocabulary=path==='/api/vocabulary';
    if(!await store.aiEligible(user.id))fail(403,'운영자의 공부방에 연결된 계정만 사용할 수 있어요.');

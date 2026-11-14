@@ -1,4 +1,5 @@
 import {aiError} from './lib/ai-error.mjs';
+import {guideRequest,cleanGuide} from './lib/guide.mjs';
 import {MAX_AUDIO_BYTES,audioType,transcribeAudio} from './lib/transcription.mjs';
 import http from 'node:http';
 import {openSocial} from './lib/social.mjs';
@@ -70,6 +71,22 @@ return async(req,res)=>{
   }catch(e){return json(res,e.status||502,{error:e.status?e.message:'음성 인식에 실패했어요.'})}
  }
  if(path==='/api/status'&&req.method==='GET')return json(res,200,{configured:Boolean(apiKey)});
+ if(path==='/api/guide'){
+  if(social&&!user)return json(res,401,{error:'로그인 후 사용할 수 있어요.'});
+  if(social&&req.headers['x-study-user']!==user.id)return json(res,409,{error:'계정이 변경됐어요. 새로고침해 주세요.'});
+  if(social&&!social.aiEligible(user.id))return json(res,403,{error:'운영자의 공부방에 연결된 계정만 사용할 수 있어요.'});
+  if(req.method!=='POST')return json(res,405,{error:'POST 요청이 필요합니다.'});
+  if(req.headers.origin!==allowedOrigin||!req.headers['content-type']?.startsWith('application/json'))return json(res,403,{error:'웹 화면에서 다시 시도해 주세요.'});
+  if(!apiKey)return json(res,503,{error:'API 키가 아직 설정되지 않았어요.'});
+  let text;try{let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4000)return json(res,413,{error:'문장이 너무 길어요.'})}text=String(JSON.parse(raw).text||'').trim()}catch{return json(res,400,{error:'올바른 문장을 보내 주세요.'})}
+  if(!text||text.length>300)return json(res,400,{error:'문장을 1~300자로 보내 주세요.'});
+  try{
+   const response=await request('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(45000),body:JSON.stringify(guideRequest(model,text))});
+   if(!response.ok){const error=await aiError(response);return json(res,error.status,{error:error.message})}
+   const data=await response.json();if(data.status==='incomplete')throw Error('incomplete');
+   return json(res,200,cleanGuide(JSON.parse((data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join('')),text));
+  }catch{return json(res,502,{error:'말하는 법 가이드를 만들지 못했어요.'})}
+ }
  if(['/api/organize','/api/vocabulary'].includes(path)){
   const vocabulary=path==='/api/vocabulary';
   if(social&&user&&req.headers['x-study-user']!==user.id)return json(res,409,{error:'계정이 변경됐어요. 새로고침해 주세요.'});

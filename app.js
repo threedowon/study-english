@@ -32,6 +32,9 @@ const ICONS={
  eyeOff:'<path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.6 3.5M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m2 2 20 20"/>',
  mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><path d="M12 17v4"/>',
  check:'<path d="M20 6 9 17l-5-5"/>',
+ retry:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+ arrowRight:'<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+ turtle:'<path d="M4 14a8 6 0 0 1 16 0v1H4z"/><path d="M20 14h2l-1-3"/><path d="M6 15v3M18 15v3M9 9l3 5 3-5"/>',
  bulb:'<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>',
 };
 const ui=(name,cls='')=>`<svg class="ui-icon${cls?' '+cls:''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;
@@ -101,7 +104,18 @@ function reviewQueue(){const list=due();const back=later.map(id=>list.find(n=>n.
 function currentCard(){const q=reviewQueue();const card=q.find(n=>n.id===reviewId)||q[0];if(card&&card.id!==reviewId){reviewId=card.id;resetCard()}return card}
 function intervalLabel(days){return days===0?'오늘 다시':days===1?'내일':days<30?`${days}일 후`:`${Math.round(days/30*10)/10}개월 후`}
 function suggested(){return attempt&&attempt.score>=PASS?'good':'again'}
-function highlighted(words){return words.map(w=>`<span class="${w.hit?'hit':'miss'}">${esc(w.text)}</span>`).join(' ')}
+function highlighted(words){return words.map(w=>`<button type="button" class="word-say ${w.hit===undefined?'':w.hit?'hit':'miss'}" data-say-word="${esc(w.text)}">${esc(w.text)}</button>`).join(' ')}
+const autoRating=()=>attempt&&attempt.score>=0.8?'good':'again';
+function guideHTML(g){if(!g)return '';const arrow={rise:'↗',fall:'↘','rise-fall':'↗↘'}[g.intonation]||'';return `<div class="say-guide"><p class="guide-line" lang="en">${g.words.map((w,i)=>`<span class="gw ${w.focus?'focus':''}">${w.syllables.map((sy,k)=>k===w.stress?`<b>${esc(sy)}</b>`:esc(sy)).join('<i>·</i>')}</span>${w.link&&i<g.words.length-1?'<span class="link">‿</span>':''}${w.pause?'<span class="pause">|</span>':''}`).join(' ')} <span class="tone">${arrow}</span></p>${g.tip?`<p class="guide-tip">${esc(g.tip)}</p>`:''}</div>`}
+let guideBusy=new Set();
+async function ensureGuide(note){
+ if(!note||(note.guide&&note.guide.for===note.english)||STATIC_ONLY||!currentUser||apiConfigured===false||guideBusy.has(note.id))return;
+ guideBusy.add(note.id);const owner=currentUser.id;
+ try{const response=await fetch(apiURL('/api/guide'),{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-Study-User':owner},body:JSON.stringify({text:note.english}),signal:AbortSignal.timeout(50000)});
+  const data=await response.json();if(!response.ok||currentUser?.id!==owner)return;
+  note.guide={...data,for:note.english};persist();if(page==='review'&&reviewId===note.id&&revealed)render();
+ }catch{}finally{guideBusy.delete(note.id)}
+}
 function reviewPage(){
  const current=currentCard();const left=reviewQueue().length;
  const head=`<div class="review-top"><button class="icon-btn close-review" data-page="home" aria-label="복습 닫기">${ui('x')}</button><div class="bar"><span style="width:${Math.round(reviewed/Math.max(1,reviewed+left)*100)}%"></span></div><span class="review-count">${left?`${left}개 남음`:'완료'}</span></div>`;
@@ -120,13 +134,15 @@ function reviewPage(){
   const passed=attempt&&attempt.score>=PASS;
   const options=[['again','다시 볼래요'],['good','기억나요'],['easy','쉬워요']];
   const pick=suggested();
-  body=`${attempt?`<p class="said"><span>내 답변</span>${esc(attempt.said)}</p>`:''}${current.tip?`<p class="tip">${esc(current.tip)}</p>`:''}<div class="listen-row"><button class="pill listen" data-speak="${esc(current.id)}" aria-label="원어민 발음 듣기">${ui('speaker')}원어민</button><button class="pill listen" id="play-mine" ${answerAudioURL?'':'disabled'} aria-label="내 녹음 다시 듣기">${ui('speaker')}나</button>${answerAudioURL?`<audio id="my-audio" src="${esc(answerAudioURL)}" preload="auto"></audio>`:''}</div><div class="review-actions">${options.map(([r,label],i)=>`<button class="rate ${r===pick?'primary':''}" data-rate="${r}"><b>${label}</b><small>${intervalLabel(nextInterval(current.interval,r))}</small></button>`).join('')}</div>`;
+  if(!(current.guide&&current.guide.for===current.english))ensureGuide(current);
+  body=`${attempt?`<p class="said"><span>내 답변</span>${esc(attempt.said)}</p>`:''}<div class="listen-row"><button class="pill listen" data-speak="${esc(current.id)}" aria-label="원어민 발음 듣기">${ui('speaker')}원어민</button><button class="pill listen" data-speak-slow="${esc(current.id)}" aria-label="천천히 듣기">${ui('turtle')}천천히</button><button class="pill listen" id="play-mine" ${answerAudioURL?'':'disabled'} aria-label="내 녹음 다시 듣기">${ui('speaker')}나</button>${answerAudioURL?`<audio id="my-audio" src="${esc(answerAudioURL)}" preload="auto"></audio>`:''}</div><div class="next-row"><span class="ctrl spacer" aria-hidden="true"></span><button class="round-btn retry" id="retry-card" aria-label="다시 말해보기">${ui('retry')}</button><button class="round-btn next" id="next-card" aria-label="다음 표현 (${autoRating()==='good'?'기억나요':'오늘 다시'})">${ui('arrowRight')}</button></div>`;
  }
  const words=current.english.split(/\s+/).filter(Boolean),hits=attempt?attempt.words.map(w=>w.hit):[];
  const bars=revealed?'':`<div class="word-bars ${peek?'peeking':''}" aria-label="영어 정답 ${words.length}단어">${words.map((w,i)=>peek?`<span class="word-peek" lang="en">${esc(w)}</span>`:`<span class="word-bar ${hits[i]?'hit':''}" style="width:${Math.min(150,Math.max(12,w.replace(/[^A-Za-z0-9]/g,'').length*12))}px"></span>`).join('')}</div>`;
  const passedNow=revealed&&attempt&&attempt.score>=PASS;
- const verdict=revealed?`<div class="verdict-arc ${passedNow?'pass':attempt?'retry':'shown'}"><svg viewBox="0 0 200 110" aria-hidden="true"><defs><linearGradient id="arc-grad" x1="0" x2="1"><stop offset="0" stop-color="#3fe29b"/><stop offset="1" stop-color="#2bb7a8"/></linearGradient></defs><path d="M18 102A82 82 0 0 1 182 102"/></svg><strong>${passedNow?'Great!':attempt?'Try<br>Again':'Answer'}</strong></div><p class="verdict-sub">${passedNow?`정답이에요! · ${Math.round(attempt.score*100)}% 일치`:attempt?`${Math.round(attempt.score*100)}% 일치 · 빨간 밑줄을 확인해 보세요`:'정답을 확인해 보세요'}</p>`:'';
- const stage=revealed?`<div class="speak-stage result-stage">${verdict}<p class="answer-en" lang="en">${attempt?highlighted(attempt.words):esc(current.english)}</p><p class="prompt-sub">${prompt}</p></div>`:`<div class="speak-stage"><button class="listen-btn" data-speak="${esc(current.id)}" aria-label="영어 문장 듣기">${ui('speaker')}</button>${bars}<h2 class="prompt-ko">${prompt}</h2></div>`;
+ const pct=revealed&&attempt?Math.round(attempt.score*100):0,word=!attempt?'Answer':pct>=90?'Great!':pct>=75?'Good!':'Try Again';
+ const verdict=revealed?`<div class="verdict-arc ${attempt?(pct>=75?'pass':'retry'):'shown'}"><svg viewBox="0 0 200 110" aria-hidden="true"><defs><linearGradient id="arc-grad" x1="0" x2="1"><stop offset="0" stop-color="#e8fbe9"/><stop offset=".55" stop-color="#8be37b"/><stop offset="1" stop-color="#3fe2a8"/></linearGradient></defs><path class="arc-track" d="M18 102A82 82 0 0 1 182 102"/><path class="arc-fill" d="M18 102A82 82 0 0 1 182 102" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${100-pct}"/></svg><strong>${word}</strong></div><p class="verdict-sub">${passedNow?`정답이에요! · ${pct}% 일치`:attempt?`${pct}% 일치 · 빨간 단어를 다시 연습해 보세요`:'정답을 확인해 보세요'}</p>`:'';
+ const stage=revealed?`<div class="speak-stage result-stage">${verdict}<p class="answer-en ${current.english.length>36?'long':''}" lang="en">${highlighted(attempt?attempt.words:current.english.split(/\s+/).filter(Boolean).map(text=>({text})))}</p><p class="prompt-sub">${prompt}</p>${current.guide&&current.guide.for===current.english?guideHTML(current.guide):(!STATIC_ONLY&&currentUser&&apiConfigured!==false?'<p class="guide-loading">말하는 법 불러오는 중…</p>':'')}</div>`:`<div class="speak-stage"><button class="listen-btn" data-speak="${esc(current.id)}" aria-label="영어 문장 듣기">${ui('speaker')}</button>${bars}<h2 class="prompt-ko">${prompt}</h2></div>`;
  return `${head}<section class="review-card">${stage}${body}</section>`;
 }
 function stopAnswer(){
@@ -242,11 +258,15 @@ function toggleAnswer(){
  if(holdSession.phase==='permission')return releaseHoldAnswer(holdSession.input,true);
 }
 document.addEventListener('click',e=>{
- const b=e.target.closest('#say-answer,#cancel-answer,#peek-answer,#play-mine');if(!b)return;
+ const b=e.target.closest('#say-answer,#cancel-answer,#peek-answer,#play-mine,#retry-card,#next-card,[data-say-word],[data-speak-slow]');if(!b)return;
  e.preventDefault();
  if(b.id==='say-answer')toggleAnswer();
  if(b.id==='cancel-answer'&&holdSession)releaseHoldAnswer(holdSession.input,true);
  if(b.id==='peek-answer'){peek=!peek;if(peek)hinted=true;render()}
+ if(b.id==='retry-card'){attempt=null;revealed=false;answerDraft='';answerNotice='';render()}
+ if(b.id==='next-card')rate(autoRating());
+ if(b.dataset?.sayWord)playEnglish(b.dataset.sayWord.replace(/[^A-Za-z0-9' -]/g,''));
+ if(b.dataset?.speakSlow){const n=state.notes.find(x=>x.id===b.dataset.speakSlow);if(n)playEnglish(n.english,{rate:.75})}
  if(b.id==='play-mine'){if('speechSynthesis' in window)speechSynthesis.cancel();const audio=$('#my-audio');if(audio){audio.currentTime=0;audio.play().catch(()=>toast('녹음을 재생하지 못했어요.'))}}
 });
 document.addEventListener('keydown',e=>{
@@ -286,8 +306,8 @@ $('#bulk-form').addEventListener('submit',e=>{
 document.addEventListener('keydown',e=>{
  if(page!=='review'||e.metaKey||e.ctrlKey||e.altKey||document.querySelector('dialog[open]'))return;
  if(e.target.closest('input,textarea,select,button'))return;
- if(e.key==='Enter'&&revealed){e.preventDefault();rate(suggested())}
- else if(revealed&&['1','2','3'].includes(e.key))rate(['again','good','easy'][Number(e.key)-1]);
+ if(e.key==='Enter'&&revealed){e.preventDefault();rate(autoRating())}
+ else if(revealed&&(e.key==='r'||e.key==='R')){attempt=null;revealed=false;answerDraft='';render()}
 });
 
 let lessonDraft='',lessonResult=null,organizing=false,lessonError='',selectedExpressions=new Set(),apiConfigured=null;

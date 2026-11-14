@@ -367,3 +367,39 @@ body[data-page=review] .done-card{margin:auto 0}
 .check-btn{width:48px;min-width:48px;padding:0}
 .check-btn .ui-icon{width:22px;height:22px;stroke-width:2.6}
 .editor details input{background:var(--surface-3);margin-top:8px}
+/* ---- result v2: score arc, tappable words, guide, retry/next ---- */
+.verdict-arc path{filter:none;opacity:1}
+.verdict-arc .arc-track{fill:none;stroke:#2a2d31;stroke-width:12;stroke-linecap:round}
+.verdict-arc .arc-fill{fill:none;stroke:url(#arc-grad);stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset .8s ease;filter:drop-shadow(0 0 10px rgba(110,230,140,.35))}
+.verdict-arc.shown .arc-fill{stroke:#5c6168;filter:none}
+.verdict-arc strong{color:#fff;text-shadow:0 0 24px rgba(255,255,255,.18)}
+.verdict-arc.retry strong{color:#fff}
+.result-stage .answer-en{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px}
+.word-say{border:0;background:none;padding:0;font:inherit;color:var(--text);cursor:pointer;border-radius:6px}
+.word-say:active{background:var(--surface-2)}
+.word-say.hit{color:#5ed27b}
+.word-say.miss{color:#f05a4f}
+.say-guide{margin-top:6px;background:var(--surface);border-radius:var(--radius-sm);padding:14px 16px;max-width:460px;width:100%}
+.guide-line{font-size:18px;line-height:1.8;color:var(--muted);text-align:center}
+.gw{white-space:nowrap}
+.gw.focus{color:var(--text);font-weight:600}
+.gw b{color:var(--mint);font-weight:800;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px}
+.gw i{font-style:normal;color:#4b5057;margin:0 1px}
+.say-guide .link{color:#7d95ff;margin:0 -3px 0 1px}
+.say-guide .pause{color:#f3c86b;margin-left:4px}
+.say-guide .tone{color:#b47cf5;font-weight:700}
+.guide-tip{font-size:13px;color:var(--sub);margin-top:6px;line-height:1.55}
+.guide-loading{font-size:13px;color:var(--muted)}
+.listen-row{grid-template-columns:1fr 1fr 1fr}
+.pill.listen{height:52px;font-size:15px;padding:0 10px}
+.next-row{display:grid;grid-template-columns:76px 76px 76px;justify-content:center;align-items:center;gap:24px;margin-top:6px}
+.round-btn{width:76px;height:76px;border-radius:50%;border:0;display:grid;place-items:center;justify-self:center}
+.round-btn .ui-icon{width:30px;height:30px}
+.round-btn.retry{background:#fff;color:#111}
+.round-btn.next{width:62px;height:62px;background:var(--surface-3);color:var(--text)}
+.round-btn.next .ui-icon{width:26px;height:26px}
+body[data-page=review] #content{min-height:calc(100dvh - 16px - env(safe-area-inset-bottom))}
+body[data-page=review] .speak-stage.result-stage{min-height:0}
+.result-stage .answer-en.long{font-size:22px}
+.result-stage .verdict-arc{width:170px;height:94px}
+.result-stage{gap:10px}
