@@ -13,15 +13,15 @@ function fixture(){
  vm.createContext(context);vm.runInContext(source,context);
  return {context,element,saved,run:code=>vm.runInContext(code,context),async fire(type,target){for(const fn of listeners[type]||[])await fn({target,preventDefault(){}})}};
 }
-test('opens on notebook and saves paired input into the due review queue',async()=>{
- const f=fixture();assert.match(f.element('#content').innerHTML,/quick-expression-form/);
+test('notebook saves paired input into the due review queue',async()=>{
+ const f=fixture();f.run("navigate('notes')");assert.match(f.element('#content').innerHTML,/quick-expression-form/);
  await f.fire('input',{id:'quick-english',value:'  I am curious.  ',dataset:{}});
  await f.fire('input',{id:'quick-meaning',value:'  나는 궁금해.  ',dataset:{}});
  await f.fire('submit',{id:'quick-expression-form'});
  assert.equal(f.saved.at(-1).notes[0].english,'I am curious.');
  assert.equal(f.saved.at(-1).notes[0].meaning,'나는 궁금해.');
  assert.equal(f.saved.at(-1).notes[0].due,f.run('dayKey()'));
- f.run("navigate('review')");assert.match(f.element('#content').innerHTML,/type-answer/);assert.doesNotMatch(f.element('#content').innerHTML,/mic-big|say-answer/);
+ f.run("navigate('review')");assert.match(f.element('#content').innerHTML,/type-answer/);assert.match(f.element('#content').innerHTML,/id="say-answer"/);
 });
 test('empty pairs and duplicate expressions are not saved',async()=>{
  const f=fixture();f.run("quickDraft={english:'Hi',meaning:'  '}");
@@ -37,4 +37,27 @@ test('recommended sentence opens editable English and Korean fields',async()=>{
  const f=fixture();f.run("vocabularyResult={expressions:[{english:'I am curious.',meaning:'나는 궁금해.'}]}");
  const button={dataset:{exampleUse:'0'},matches:()=>false};await f.fire('click',{closest:()=>button});
  assert.equal(f.element('#english').value,'I am curious.');assert.equal(f.element('#meaning').value,'나는 궁금해.');assert.equal(f.element('#add-dialog').open,true);assert.equal(f.saved.length,0);
+});
+
+test('home opens with progress, weekly reviews and invitation access; recording stays in notebook',()=>{
+ const f=fixture();const html=f.element('#content').innerHTML;
+ assert.match(html,/연속 복습/);assert.match(html,/이번 주의 작은 꾸준함/);
+ assert.match(html,/data-page="together">친구 초대/);
+ assert.match(html,/data-page="notes">오늘 배운 표현 기록하기/);
+ assert.doesNotMatch(html,/data-page="talk"|data-page="lesson"|quick-expression-form/);
+ f.run("state.history=[{date:dayKey()}];render()");
+ assert.match(f.element('#content').innerHTML,/<b>1일<\/b>/);
+ assert.match(f.element('#content').innerHTML,/1 \/ 5개 완료/);
+ f.run("navigate('notes')");assert.match(f.element('#content').innerHTML,/vocabulary-form/);
+});
+
+test('review microphone uses recognition and grades the spoken answer',async()=>{
+ const f=fixture();let rec;
+ f.context.window.SpeechRecognition=class{constructor(){rec=this}start(){this.started=true}abort(){}};
+ f.run("navigate('review');listenAnswer()");
+ assert.equal(rec.started,true);assert.equal(rec.lang,'en-US');
+ const result=[{transcript:'I came here by van.'}];result.isFinal=true;
+ rec.onresult({results:[result]});rec.onend();
+ assert.match(f.element('#content').innerHTML,/정답이에요!/);
+ assert.match(f.element('#content').innerHTML,/100%/);
 });
