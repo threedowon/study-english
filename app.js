@@ -69,9 +69,10 @@ if('speechSynthesis' in window){
 }
 
 // ---- Speaking review: Korean prompt only, answer by voice (or typing), graded in the browser ----
+let answerNotice='',answerDraft='';
 let attempt=null,hinted=false,tries=0,answerRec=null,answerFor=null,later=[],editingId=null;
 const SpeechAPI=()=>window.SpeechRecognition||window.webkitSpeechRecognition;
-function resetCard(){attempt=null;hinted=false;tries=0;revealed=false}
+function resetCard(){answerNotice='';answerDraft='';attempt=null;hinted=false;tries=0;revealed=false}
 function reviewQueue(){const list=due();const back=later.map(id=>list.find(n=>n.id===id)).filter(Boolean);return [...list.filter(n=>!later.includes(n.id)),...back]}
 function currentCard(){const q=reviewQueue();const card=q.find(n=>n.id===reviewId)||q[0];if(card&&card.id!==reviewId){reviewId=card.id;resetCard()}return card}
 function intervalLabel(days){return days===0?'오늘 다시':days===1?'내일':days<30?`${days}일 후`:`${Math.round(days/30*10)/10}개월 후`}
@@ -87,7 +88,7 @@ function reviewPage(){
  let body;
  if(!revealed){
   const feedback=attempt?`<div class="attempt ${attempt.score>=CLOSE?'close':'far'}"><strong>${attempt.score>=CLOSE?'거의 다 왔어요!':'아쉬워요, 한 번 더!'}</strong> <span>${Math.round(attempt.score*100)}% 일치 · ${tries}번째 시도</span><p>내 답변: “${esc(attempt.said||'(인식된 말 없음)')}”</p></div>`:'';
-  body=`${showHint}${feedback}<button class="mic-big ${listening?'on':''}" id="say-answer" aria-label="${listening?'말하기 끝내기':'영어로 말해서 맞추기'}"><span>${listening?'■':'🎤'}</span>${listening?'듣고 있어요… 다 말했으면 누르기':attempt?'다시 말하기':'눌러서 영어로 말하기'}</button><p class="heard" id="heard" aria-live="polite"></p><div class="review-tools">${!hinted&&current.meaning?'<button class="text-btn" id="show-hint">첫 글자 힌트</button>':''}<button class="text-btn" id="reveal">모르겠어요 · 정답 보기</button></div><form id="type-answer" class="type-answer"><input id="typed" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="말하기 어려울 땐 직접 입력" aria-label="직접 입력해서 맞추기"><button class="button">확인</button></form><p class="helper keys">단축키 · Space 말하기 · Enter 다음</p>`;
+  body=`${showHint}${feedback}<button class="mic-big ${listening?'on':''}" id="say-answer" aria-label="${listening?'말하기 끝내기':'영어로 말해서 맞추기'}"><span>${listening?'■':'🎤'}</span>${listening?'듣고 있어요… 다 말했으면 누르기':attempt?'다시 말하기':'눌러서 영어로 말하기'}</button><p class="heard" id="heard" aria-live="polite">${esc(answerDraft)}</p><p class="helper" id="answer-notice" role="status">${esc(answerNotice)}</p><div class="review-tools">${!hinted&&current.meaning?'<button class="text-btn" id="show-hint">첫 글자 힌트</button>':''}<button class="text-btn" id="reveal">모르겠어요 · 정답 보기</button></div><form id="type-answer" class="type-answer"><input id="typed" value="${esc(answerDraft)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="말하기 어려울 땐 직접 입력" aria-label="직접 입력해서 맞추기"><button class="button">확인</button></form><p class="helper keys">단축키 · Space 말하기 · Enter 다음</p><p class="helper">문장 일치도는 발음 점수가 아니에요. 인식된 문장이 다르면 직접 고쳐 확인할 수 있어요.</p>`;
  }else{
   const passed=attempt&&attempt.score>=PASS;
   const options=[['again','다시 볼래요'],['good','기억나요'],['easy','쉬워요']];
@@ -103,19 +104,51 @@ function submitAnswer(alternatives){
  if(attempt.score>=PASS){revealed=true;render();playEnglish(note.english)}else render();
 }
 function listenAnswer(){
+ const notice=text=>{answerNotice=text;const el=$('#answer-notice');if(el)el.textContent=text};
  const API=SpeechAPI();
- if(!API){toast('이 브라우저는 음성 인식을 지원하지 않아요. Chrome·Safari에서 열거나 아래에 직접 입력해 주세요.');$('#typed')?.focus();return}
- if(answerRec){try{answerRec.stop()}catch{}return}
+ if(!API){notice('이 브라우저에서는 음성 인식을 사용할 수 없어요. 사이트를 Safari나 Chrome에서 직접 열거나 아래에 입력해 주세요.');$('#typed')?.focus();return}
+ if(answerRec){notice('말한 내용을 정리하고 있어요…');try{answerRec.stop()}catch{}return}
  if(recognition)recognition.stop();if('speechSynthesis' in window)speechSynthesis.cancel();
  const note=currentCard();if(!note)return;
  const rec=new API();rec.lang='en-US';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=5;
  let alternatives=[],failed=false;
+ answerDraft='';answerNotice='마이크 연결 중… 준비 안내가 나오면 영어로 말해 주세요.';
  answerRec=rec;answerFor=note.id;
- rec.onresult=e=>{const results=Array.from(e.results);const text=results.map(r=>r[0].transcript).join(' ');const el=$('#heard');if(el)el.textContent=text;
-  if(results.every(r=>r.isFinal)){const prefix=results.slice(0,-1).map(r=>r[0].transcript).join(' ');alternatives=Array.from(results.at(-1)).map(a=>`${prefix} ${a.transcript}`.trim())}};
- rec.onerror=e=>{failed=true;if(e.error==='aborted')return;toast(e.error==='not-allowed'||e.error==='service-not-allowed'?'마이크 권한이 필요해요. 주소창의 자물쇠 아이콘에서 허용해 주세요.':e.error==='no-speech'?'아무 말도 들리지 않았어요. 다시 눌러서 말해 주세요.':e.error==='network'?'음성 인식 서버에 연결하지 못했어요. 인터넷 연결을 확인하거나 직접 입력해 주세요.':'음성을 인식하지 못했어요. 다시 시도하거나 직접 입력해 주세요.')};
- rec.onend=()=>{if(answerRec!==rec)return;answerRec=null;answerFor=null;if(page!=='review'||reviewId!==note.id)return;if(alternatives.length)submitAnswer(alternatives);else{if(!failed)toast('잘 듣지 못했어요. 다시 눌러서 말해 주세요.');render()}};
- try{rec.start();render()}catch{answerRec=null;answerFor=null;toast('마이크를 시작할 수 없어요. 직접 입력해 주세요.')}
+ const active=()=>answerRec===rec&&page==='review'&&reviewId===note.id;
+ rec.onstart=()=>{if(active())notice('마이크가 준비됐어요. 영어로 말한 뒤 잠시 기다려 주세요.')};
+ rec.onaudiostart=()=>{if(active())notice('마이크가 켜졌어요. 영어로 말해 주세요.')};
+ rec.onspeechstart=()=>{if(active())notice('말소리를 감지했어요. 듣고 있어요…')};
+ rec.onresult=e=>{
+  if(!active())return;
+  const results=Array.from(e.results);answerDraft=results.map(r=>r[0]?.transcript||'').join(' ').trim();
+  const el=$('#heard');if(el)el.textContent=answerDraft;
+  alternatives=[];
+  if(results.length&&results.every(r=>r.isFinal)){
+   const prefix=results.slice(0,-1).map(r=>r[0].transcript).join(' ');
+   alternatives=Array.from(results.at(-1)).map(a=>`${prefix} ${a.transcript}`.trim()).filter(Boolean);
+  }
+ };
+ rec.onerror=e=>{
+  if(!active())return;failed=true;
+  const messages={
+   'not-allowed':'마이크 사용이 허용되지 않았어요. 브라우저의 이 사이트 마이크 권한을 확인해 주세요.',
+   'service-not-allowed':'브라우저가 음성 인식 서비스를 허용하지 않았어요. Safari나 Chrome에서 사이트를 직접 열어 주세요.',
+   'audio-capture':'마이크에 연결하지 못했어요. 기기의 입력 마이크와 연결 상태를 확인해 주세요.',
+   'no-speech':'말소리를 인식하지 못했어요. 마이크 준비 안내가 나온 뒤 다시 말해 주세요.',
+   network:'음성 인식 서버에 연결하지 못했어요. 인터넷 연결을 확인하거나 직접 입력해 주세요.',
+   aborted:'음성 입력이 중단됐어요. 다시 시작할 수 있어요.',
+   'language-not-supported':'이 브라우저에서 영어 음성 인식을 사용할 수 없어요. 다른 브라우저에서 열어 주세요.'
+  };
+  notice(messages[e.error]||'음성 인식을 완료하지 못했어요. 다시 말하거나 직접 입력해 주세요.');
+ };
+ rec.onend=()=>{
+  if(!active())return;answerRec=null;answerFor=null;
+  if(!failed&&alternatives.length){answerNotice='';submitAnswer(alternatives);return}
+  if(answerDraft){answerNotice=(failed?answerNotice+' ':'')+'인식된 문장을 입력칸에 남겼어요. 확인하거나 고친 뒤 확인을 눌러 주세요.'}
+  else if(!failed)answerNotice='인식된 문장이 없어요. 마이크 준비 안내가 나온 뒤 다시 말해 주세요.';
+  render();
+ };
+ try{render();rec.start()}catch{answerRec=null;answerFor=null;notice('마이크를 시작하지 못했어요. 사이트의 마이크 권한을 확인하거나 직접 입력해 주세요.');render()}
 }
 function rate(r){
  const note=state.notes.find(n=>n.id===reviewId);if(!note||!revealed)return;

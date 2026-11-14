@@ -61,3 +61,25 @@ test('review microphone uses recognition and grades the spoken answer',async()=>
  assert.match(f.element('#content').innerHTML,/정답이에요!/);
  assert.match(f.element('#content').innerHTML,/100%/);
 });
+
+test('interim-only speech remains editable without grading it as a wrong answer',()=>{
+ const f=fixture();let rec;f.context.window.SpeechRecognition=class{constructor(){rec=this}start(){}abort(){}};
+ f.run("navigate('review');listenAnswer()");
+ const result=[{transcript:'I came here'}];result.isFinal=false;
+ rec.onresult({results:[result]});rec.onend();
+ assert.equal(f.run('attempt'),null);assert.equal(f.run('tries'),0);
+ assert.match(f.element('#content').innerHTML,/value="I came here"/);
+ assert.match(f.element('#content').innerHTML,/입력칸에 남겼어요/);
+});
+test('microphone errors stay visible and do not grade empty audio',()=>{
+ const f=fixture();let rec;f.context.window.SpeechRecognition=class{constructor(){rec=this}start(){}abort(){}};
+ f.run("navigate('review');listenAnswer()");rec.onerror({error:'audio-capture'});rec.onend();
+ assert.match(f.element('#content').innerHTML,/마이크에 연결하지 못했어요/);
+ assert.equal(f.run('attempt'),null);
+});
+test('late speech callbacks cannot change a different page',()=>{
+ const f=fixture();let rec;f.context.window.SpeechRecognition=class{constructor(){rec=this}start(){}abort(){}};
+ f.run("navigate('review');listenAnswer();navigate('notes')");
+ const result=[{transcript:'stale'}];result.isFinal=true;rec.onresult({results:[result]});rec.onend();
+ assert.equal(f.run('answerDraft'),'');assert.match(f.element('#content').innerHTML,/quick-expression-form/);
+});
