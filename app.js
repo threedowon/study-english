@@ -26,6 +26,11 @@ const ICONS={
  download:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
  chevron:'<path d="m9 6 6 6-6 6"/>',
+ x:'<path d="M18 6 6 18M6 6l12 12"/>',
+ arrowUp:'<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>',
+ eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+ eyeOff:'<path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.6 3.5M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m2 2 20 20"/>',
+ mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><path d="M12 17v4"/>',
  bulb:'<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>',
 };
 const ui=(name,cls='')=>`<svg class="ui-icon${cls?' '+cls:''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;
@@ -87,10 +92,10 @@ if('speechSynthesis' in window){
 }
 
 // ---- Speaking review: Korean prompt only, answer by voice (or typing), graded in the browser ----
-let answerNotice='',answerDraft='',answerAudioURL='',holdSession=null,micReady=false,micPreparing=false;
+let answerNotice='',answerDraft='',answerAudioURL='',holdSession=null,micReady=false,micPreparing=false,peek=false;
 let attempt=null,hinted=false,tries=0,answerRec=null,answerFor=null,later=[],editingId=null;
 const SpeechAPI=()=>window.SpeechRecognition||window.webkitSpeechRecognition;
-function resetCard(){answerNotice='';answerDraft='';if(answerAudioURL){URL.revokeObjectURL(answerAudioURL);answerAudioURL=''}attempt=null;hinted=false;tries=0;revealed=false}
+function resetCard(){answerNotice='';answerDraft='';if(answerAudioURL){URL.revokeObjectURL(answerAudioURL);answerAudioURL=''}attempt=null;hinted=false;peek=false;tries=0;revealed=false}
 function reviewQueue(){const list=due();const back=later.map(id=>list.find(n=>n.id===id)).filter(Boolean);return [...list.filter(n=>!later.includes(n.id)),...back]}
 function currentCard(){const q=reviewQueue();const card=q.find(n=>n.id===reviewId)||q[0];if(card&&card.id!==reviewId){reviewId=card.id;resetCard()}return card}
 function intervalLabel(days){return days===0?'오늘 다시':days===1?'내일':days<30?`${days}일 후`:`${Math.round(days/30*10)/10}개월 후`}
@@ -103,22 +108,29 @@ function reviewPage(){
  const listening=holdSession?.noteId===current.id&&holdSession.phase==='recording';
  const processing=holdSession?.noteId===current.id&&holdSession.phase==='processing';
  const prompt=current.meaning?esc(current.meaning):`<span class="helper">한글 뜻이 비어 있어요. 힌트를 보고 말해보세요.</span>`;
- const showHint=(hinted||!current.meaning)&&!revealed?`<p class="hint-line">${esc(hint(current.english))}</p>`:'';
+ const showHint=!current.meaning&&!revealed?`<p class="hint-line">${esc(hint(current.english))}</p>`:'';
  let body;
  if(!revealed){
   const feedback=attempt?`<div class="attempt ${attempt.score>=CLOSE?'close':'far'}"><strong>${attempt.score>=CLOSE?'거의 다 왔어요!':'아쉬워요, 한 번 더!'}</strong> <span>${Math.round(attempt.score*100)}% 일치 · ${tries}번째 시도</span><p>내 답변: “${esc(attempt.said||'(인식된 말 없음)')}”</p></div>`:'';
-  body=`${showHint}${feedback}<div class="voice-panel"><button type="button" class="mic-big ${listening?'on':''}" id="say-answer" aria-label="누르고 있는 동안 영어로 말하기" aria-pressed="${!!listening}" ${processing?'disabled':''}><span class="mic-symbol" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="13" rx="4"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></span><span class="mic-label">${processing?'음성을 인식하고 있어요…':listening?'녹음 중 · 손을 떼면 완료':'꾹 누르고 말하기'}</span><small class="mic-caption">${listening?'위로 밀면 취소':'손을 떼면 완료 · 최대 30초'}</small></button><p class="heard" id="heard" aria-live="polite">${esc(answerDraft)}</p><p class="helper" id="answer-notice" role="status">${esc(answerNotice)}</p></div><div class="review-tools">${!hinted&&current.meaning?'<button class="pill sm" id="show-hint">'+ui('bulb')+'힌트</button>':''}<button class="pill sm" id="reveal">정답 보기</button></div><form id="type-answer" class="type-answer"><input id="typed" value="${esc(answerDraft)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="말하기 어려울 땐 직접 입력" aria-label="직접 입력해서 맞추기"><button class="pill primary sm">확인</button></form>`;
+  const elapsed=listening&&holdSession.started?Math.min(30,(Date.now()-holdSession.started)/1000):0;
+  const tip=holdSession?.noteId===current.id?(listening?'다 말했으면 ↑ 를 눌러 보내세요':processing?'듣고 있어요…':'마이크 연결 중…'):attempt?'다시 말해볼까요?':'문장을 만들어보세요';
+  body=`${showHint}${feedback}<div class="voice-panel"><span class="speak-tip">${tip}</span><div class="voice-wave ${listening?'on':''}" id="voice-wave" aria-hidden="true">${'<i></i>'.repeat(28)}</div><div class="control-row"><button type="button" class="ctrl cancel" id="cancel-answer" aria-label="녹음 취소" ${listening?'':'hidden'}>${ui('x')}</button><button type="button" class="mic-big ${listening?'on':''} ${processing?'busy':''}" id="say-answer" aria-label="${listening?'녹음 보내기':'눌러서 영어로 말하기'}" aria-pressed="${!!listening}" ${processing?'disabled':''}><span class="mic-symbol" aria-hidden="true">${listening?`<svg class="ring" viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="46"/><circle class="ring-fill" cx="50" cy="50" r="46" style="animation-delay:-${elapsed.toFixed(1)}s"/></svg>${ui('arrowUp')}`:processing?'<span class="spinner"></span>':ui('mic')}</span><span class="mic-label">${processing?'음성을 인식하고 있어요…':listening?'녹음 중 · ↑ 를 눌러 보내기':'눌러서 말하기'}</span><small class="mic-caption">${listening?'최대 30초':''}</small></button><button type="button" class="ctrl peek ${peek?'on':''}" id="peek-answer" aria-label="${peek?'정답 가리기':'정답 살짝 보기'}" aria-pressed="${peek}">${ui(peek?'eye':'eyeOff')}</button></div><p class="heard" id="heard" aria-live="polite">${esc(answerDraft)}</p><p class="helper" id="answer-notice" role="status">${esc(answerNotice)}</p></div><form id="type-answer" class="type-answer"><input id="typed" value="${esc(answerDraft)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="말하기 어려울 땐 직접 입력" aria-label="직접 입력해서 맞추기"><button class="pill primary sm">확인</button></form><button class="link give-up" id="reveal">모르겠어요 · 정답 보기</button>`;
  }else{
   const passed=attempt&&attempt.score>=PASS;
   const options=[['again','다시 볼래요'],['good','기억나요'],['easy','쉬워요']];
   const pick=suggested();
-  body=`<div class="result ${passed?'pass':'fail'}"><div class="verdict"><span class="badge">${ui(passed?'crown':'book')}</span>${passed?`정답이에요! <small>${Math.round(attempt.score*100)}% 일치</small>`:attempt?'정답과 비교해 보세요':'정답은 이거예요'}</div><p class="answer-en" lang="en">${attempt?highlighted(attempt.words):esc(current.english)}</p>${attempt?`<p class="said"><span>내 답변</span>${esc(attempt.said)}</p>`:''}${current.tip?`<p class="tip">${esc(current.tip)}</p>`:''}<div class="result-tools"><button class="icon-btn round" data-speak="${esc(current.id)}" aria-label="정답 듣기">${ui('speaker')}</button>${attempt&&!passed?'<span class="result-note">빨간 밑줄은 빠졌거나 다르게 말한 단어예요</span>':''}</div></div><div class="review-actions">${options.map(([r,label],i)=>`<button class="rate ${r===pick?'primary':''}" data-rate="${r}"><b>${label}</b><small>${intervalLabel(nextInterval(current.interval,r))}</small></button>`).join('')}</div>`;
+  body=`${attempt?`<p class="said"><span>내 답변</span>${esc(attempt.said)}</p>`:''}${current.tip?`<p class="tip">${esc(current.tip)}</p>`:''}<div class="listen-row"><button class="pill listen" data-speak="${esc(current.id)}" aria-label="원어민 발음 듣기">${ui('speaker')}원어민</button><button class="pill listen" id="play-mine" ${answerAudioURL?'':'disabled'} aria-label="내 녹음 다시 듣기">${ui('speaker')}나</button>${answerAudioURL?`<audio id="my-audio" src="${esc(answerAudioURL)}" preload="auto"></audio>`:''}</div><div class="review-actions">${options.map(([r,label],i)=>`<button class="rate ${r===pick?'primary':''}" data-rate="${r}"><b>${label}</b><small>${intervalLabel(nextInterval(current.interval,r))}</small></button>`).join('')}</div>`;
  }
- return `${head}<section class="review-card"><div class="prompt-card"><span class="ago">${ui('book')}${ago(current)}</span><h2 class="prompt-ko">${prompt}</h2><p class="prompt-q">영어로는?</p></div>${body}${answerAudioURL?`<div class="answer-playback"><p class="helper">내 녹음 다시 듣기</p><audio controls src="${esc(answerAudioURL)}"></audio></div>`:''}</section>`;
+ const words=current.english.split(/\s+/).filter(Boolean),hits=attempt?attempt.words.map(w=>w.hit):[];
+ const bars=revealed?'':`<div class="word-bars ${peek?'peeking':''}" aria-label="영어 정답 ${words.length}단어">${words.map((w,i)=>peek?`<span class="word-peek" lang="en">${esc(w)}</span>`:`<span class="word-bar ${hits[i]?'hit':''}" style="width:${Math.min(150,Math.max(12,w.replace(/[^A-Za-z0-9]/g,'').length*12))}px"></span>`).join('')}</div>`;
+ const passedNow=revealed&&attempt&&attempt.score>=PASS;
+ const verdict=revealed?`<div class="verdict-arc ${passedNow?'pass':attempt?'retry':'shown'}"><svg viewBox="0 0 200 110" aria-hidden="true"><defs><linearGradient id="arc-grad" x1="0" x2="1"><stop offset="0" stop-color="#3fe29b"/><stop offset="1" stop-color="#2bb7a8"/></linearGradient></defs><path d="M18 102A82 82 0 0 1 182 102"/></svg><strong>${passedNow?'Great!':attempt?'Try<br>Again':'Answer'}</strong></div><p class="verdict-sub">${passedNow?`정답이에요! · ${Math.round(attempt.score*100)}% 일치`:attempt?`${Math.round(attempt.score*100)}% 일치 · 빨간 밑줄을 확인해 보세요`:'정답을 확인해 보세요'}</p>`:'';
+ const stage=revealed?`<div class="speak-stage result-stage">${verdict}<p class="answer-en" lang="en">${attempt?highlighted(attempt.words):esc(current.english)}</p><p class="prompt-sub">${prompt}</p></div>`:`<div class="speak-stage"><button class="listen-btn" data-speak="${esc(current.id)}" aria-label="영어 문장 듣기">${ui('speaker')}</button>${bars}<h2 class="prompt-ko">${prompt}</h2></div>`;
+ return `${head}<section class="review-card">${stage}${body}</section>`;
 }
 function stopAnswer(){
  const session=holdSession;if(!session)return;
- session.cancelled=true;session.released=true;holdSession=null;clearTimeout(session.timer);session.controller?.abort();
+ session.cancelled=true;session.released=true;holdSession=null;clearTimeout(session.timer);try{session.audioCtx?.close()}catch{}session.controller?.abort();
  if(session.recorder?.state==='recording')try{session.recorder.stop()}catch{}
  session.stream?.getTracks().forEach(track=>track.stop());
 }
@@ -158,7 +170,7 @@ async function startHoldAnswer(input,button){
  if(answerAudioURL){URL.revokeObjectURL(answerAudioURL);answerAudioURL=''}
  answerDraft='';const heard=$('#heard');if(heard)heard.textContent='';const typed=$('#typed');if(typed)typed.value='';
  const session={input,noteId:note.id,owner:currentUser.id,phase:'permission',released:false,cancelled:false,chunks:[]};
- holdSession=session;setAnswerNotice('마이크 연결 중… 처음에는 권한을 허용한 뒤 다시 눌러 주세요.');
+ holdSession=session;setAnswerNotice('');
  updateHoldButton('마이크 연결 중…');
  try{
   const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
@@ -171,7 +183,7 @@ async function startHoldAnswer(input,button){
   rec.onstop=()=>finishHoldAnswer(session);
   rec.start();session.phase='recording';session.started=Date.now();
   session.timer=setTimeout(()=>releaseHoldAnswer(session.input),30000);
-  setAnswerNotice('녹음 중이에요. 말이 끝나면 버튼에서 손을 떼세요.');updateHoldButton('● 녹음 중 · 손을 떼면 완료',true);
+  answerNotice='';updateHoldButton('● 녹음 중 · ↑ 를 눌러 보내기',true);render();startMeter(session);
  }catch(error){
   if(holdSession!==session)return;stopAnswer();
   setAnswerNotice(error.name==='NotAllowedError'?'마이크 권한이 필요해요. 브라우저에서 허용한 뒤 다시 눌러 주세요.':'마이크를 켜지 못했어요. 입력 장치 연결을 확인해 주세요.');render();
@@ -181,11 +193,11 @@ function releaseHoldAnswer(input,cancel=false){
  const session=holdSession;if(!session||session.input!==input||session.released)return;
  session.released=true;clearTimeout(session.timer);
  if(cancel||session.cancelIntent||session.phase==='permission'){
-  stopAnswer();setAnswerNotice((cancel||session.cancelIntent)?'녹음을 취소했어요.':'녹음 준비 전에 손을 뗐어요. 권한을 허용한 뒤 다시 누르고 말해 주세요.');render();return;
+  stopAnswer();setAnswerNotice((cancel||session.cancelIntent)?'녹음을 취소했어요.':'마이크 권한을 허용한 뒤 다시 눌러 주세요.');render();return;
  }
  if(session.phase!=='recording')return;
  session.phase='processing';session.duration=Date.now()-session.started;
- updateHoldButton('음성을 인식하고 있어요…');setAnswerNotice('녹음이 끝났어요. 음성을 인식하고 있어요…');
+ updateHoldButton('음성을 인식하고 있어요…');setAnswerNotice('');
  if(session.recorder.state==='recording')session.recorder.stop();
  session.stream.getTracks().forEach(track=>track.stop());
 }
@@ -195,7 +207,7 @@ async function finishHoldAnswer(session){
  const active=()=>holdSession===session&&page==='review'&&reviewId===session.noteId&&currentUser?.id===session.owner;
  const blob=new Blob(session.chunks,{type:session.recorder.mimeType||session.chunks[0]?.type||'audio/webm'});
  if(!session.released||session.duration<250||!blob.size||blob.size>2*1024*1024){
-  holdSession=null;setAnswerNotice(blob.size>2*1024*1024?'녹음이 너무 커요. 더 짧게 말해 주세요.':'녹음이 너무 짧아요. 버튼을 누른 채 한 문장을 말해 주세요.');render();return;
+  holdSession=null;setAnswerNotice(blob.size>2*1024*1024?'녹음이 너무 커요. 더 짧게 말해 주세요.':'녹음이 너무 짧아요. 한 문장을 말한 뒤 ↑ 를 눌러 주세요.');render();return;
  }
  answerAudioURL=URL.createObjectURL(blob);session.controller=new AbortController();session.timer=setTimeout(()=>session.controller.abort(),50000);
  render();
@@ -212,30 +224,35 @@ async function finishHoldAnswer(session){
   setAnswerNotice(error.name==='AbortError'?'음성 인식 시간이 초과됐어요. 다시 시도해 주세요.':error.message);render();
  }finally{clearTimeout(session.timer)}
 }
-document.addEventListener('pointerdown',e=>{
- const b=e.target.closest('#say-answer');if(!b||e.button!==0||e.isPrimary===false||holdSession)return;
- e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch{}
- startHoldAnswer('pointer:'+e.pointerId,b);
- if(holdSession?.input==='pointer:'+e.pointerId)holdSession.startY=e.clientY;
+function startMeter(session){
+ try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC||!session.stream)return;
+  const ctx=new AC(),analyser=ctx.createAnalyser();analyser.fftSize=512;ctx.createMediaStreamSource(session.stream).connect(analyser);session.audioCtx=ctx;
+  const data=new Uint8Array(analyser.fftSize);let last=0;session.levels=[];
+  const tick=t=>{if(holdSession!==session||session.phase!=='recording'){ctx.close().catch(()=>{});return}
+   if(t-last>70){last=t;analyser.getByteTimeDomainData(data);let sum=0;for(const v of data){const d=(v-128)/128;sum+=d*d}
+    session.levels.push(Math.min(1,Math.sqrt(sum/data.length)*5));if(session.levels.length>28)session.levels.shift();
+    const bars=document.querySelectorAll('#voice-wave i'),offset=bars.length-session.levels.length;session.levels.forEach((l,i)=>{const bar=bars[offset+i];if(bar)bar.style.height=`${4+Math.round(l*24)}px`})}
+   requestAnimationFrame(tick)};requestAnimationFrame(tick);
+ }catch{}
+}
+function toggleAnswer(){
+ if(!holdSession)return startHoldAnswer('tap');
+ if(holdSession.phase==='recording')return releaseHoldAnswer(holdSession.input);
+ if(holdSession.phase==='permission')return releaseHoldAnswer(holdSession.input,true);
+}
+document.addEventListener('click',e=>{
+ const b=e.target.closest('#say-answer,#cancel-answer,#peek-answer,#play-mine');if(!b)return;
+ e.preventDefault();
+ if(b.id==='say-answer')toggleAnswer();
+ if(b.id==='cancel-answer'&&holdSession)releaseHoldAnswer(holdSession.input,true);
+ if(b.id==='peek-answer'){peek=!peek;if(peek)hinted=true;render()}
+ if(b.id==='play-mine'){if('speechSynthesis' in window)speechSynthesis.cancel();const audio=$('#my-audio');if(audio){audio.currentTime=0;audio.play().catch(()=>toast('녹음을 재생하지 못했어요.'))}}
 });
-document.addEventListener('pointermove',e=>{
- const s=holdSession;if(!s||s.input!=='pointer:'+e.pointerId||s.phase!=='recording'||s.released)return;
- const cancel=s.startY-e.clientY>90;if(cancel===!!s.cancelIntent)return;s.cancelIntent=cancel;
- updateHoldButton(cancel?'손을 떼면 녹음 취소':'녹음 중 · 손을 떼면 완료',true);
- const b=$('#say-answer');if(b)b.classList.toggle('cancelling',cancel);
- setAnswerNotice(cancel?'아래로 돌아오면 계속 녹음할 수 있어요.':'녹음 중이에요. 말이 끝나면 손을 떼세요.');
-});
-document.addEventListener('pointerup',e=>releaseHoldAnswer('pointer:'+e.pointerId));
-document.addEventListener('pointercancel',e=>releaseHoldAnswer('pointer:'+e.pointerId,true));
-document.addEventListener('lostpointercapture',e=>{if(holdSession?.input==='pointer:'+e.pointerId&&!holdSession.released)releaseHoldAnswer('pointer:'+e.pointerId,true)});
-document.addEventListener('contextmenu',e=>{if(e.target.closest('#say-answer'))e.preventDefault()});
 document.addEventListener('keydown',e=>{
  if(page!=='review'||revealed||e.repeat||e.metaKey||e.ctrlKey||e.altKey||document.querySelector('dialog[open]'))return;
- const onMic=e.target.closest('#say-answer');
- if((e.code==='Space'&&(onMic||!e.target.closest('input,textarea,select,button')))||(e.key==='Enter'&&onMic)){e.preventDefault();startHoldAnswer('key:'+e.code,$('#say-answer'))}
+ if(e.code==='Space'&&!e.target.closest('input,textarea,select,button')){e.preventDefault();toggleAnswer()}
 });
-document.addEventListener('keyup',e=>{if(holdSession?.input==='key:'+e.code){e.preventDefault();releaseHoldAnswer('key:'+e.code)}});
-window.addEventListener('blur',()=>{if(holdSession&&!holdSession.released){stopAnswer();answerNotice='녹음이 취소됐어요. 다시 누르고 말해 주세요.';if(page==='review')render()}});
+window.addEventListener('blur',()=>{if(holdSession&&!holdSession.released){stopAnswer();answerNotice='녹음이 취소됐어요. 다시 눌러 말해 주세요.';if(page==='review')render()}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopAnswer();if(page==='review'){answerNotice='화면을 나가 녹음을 취소했어요.';render()}}});
 window.addEventListener('pagehide',()=>stopAnswer());
 function rate(r){
@@ -249,7 +266,6 @@ function openBulk(){stopAnswer();if($('#add-dialog').open)$('#add-dialog').close
 function updateBulkPreview(){const {items,skipped}=parseBulk($('#bulk-text').value);const dup=items.filter(x=>state.notes.some(n=>n.english.trim().toLowerCase()===x.english.toLowerCase())).length;$('#bulk-preview').innerHTML=items.length||skipped.length?`<strong>${items.length}개 인식</strong>${dup?` · 이미 있는 ${dup}개는 건너뛰어요`:''}${skipped.length?` · 형식이 맞지 않는 ${skipped.length}줄: <em>${esc(skipped.slice(0,2).join(' / '))}${skipped.length>2?' …':''}</em>`:''}<ul>${items.slice(0,4).map(x=>`<li><b>${esc(x.meaning)}</b> → ${esc(x.english)}</li>`).join('')}${items.length>4?'<li>…</li>':''}</ul>`:'한 줄에 하나씩, 영어와 한글 사이에 / 또는 | 또는 탭을 넣어 주세요.'}
 document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
- if(b.id==='say-answer')e.preventDefault();
  if(b.id==='prepare-mic')prepareMicrophone();
  if(b.id==='show-hint'){hinted=true;render()}
  if(b.dataset.edit){const note=state.notes.find(n=>n.id===b.dataset.edit);if(note)openAdd('',note)}

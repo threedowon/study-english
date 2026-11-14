@@ -277,3 +277,61 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:0}
 .vocabulary-panel .helper[role=status]{margin-top:10px}
 #word-lookup{margin-top:4px}
 .review-card>.type-answer{margin-top:4px}
+/* ---- review v2 (Heyring speaking screen) ---- */
+.review-card{gap:16px}
+.speak-stage{display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px;padding:28px 4px 8px;min-height:300px;justify-content:center}
+.listen-btn{width:64px;height:64px;border-radius:50%;border:1.5px solid var(--surface-3);background:transparent;color:var(--text);display:grid;place-items:center}
+.listen-btn .ui-icon{width:28px;height:28px}
+.listen-btn:active{background:var(--surface-2)}
+.word-bars{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:18px 12px;max-width:440px;padding:6px 0}
+.word-bar{height:7px;border-radius:99px;background:#8c919b;transition:background .2s}
+.word-bar.hit{background:#fff}
+.word-bars.peeking{gap:8px 10px}
+.word-peek{font-size:20px;font-weight:700;color:var(--text);line-height:1.3}
+.speak-stage .prompt-ko{font-size:19px;font-weight:500;color:var(--sub);margin:0;line-height:1.5}
+.voice-panel{gap:10px;padding:8px 0 0}
+.speak-tip{position:relative;display:inline-block;background:#fff;color:#111;font-size:14px;font-weight:600;padding:9px 16px;border-radius:999px;margin-bottom:8px}
+.speak-tip::after{content:'';position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);border:6px solid transparent;border-top-color:#fff;border-bottom:0}
+.voice-wave{display:flex;align-items:center;justify-content:center;gap:3px;height:30px;opacity:0;transition:opacity .2s}
+.voice-wave.on{opacity:1}
+.voice-wave i{width:3px;height:4px;border-radius:2px;background:#9aa0a8;transition:height .08s}
+.control-row{display:grid;grid-template-columns:64px 92px 64px;align-items:center;justify-content:center;gap:22px}
+.ctrl{width:58px;height:58px;border-radius:50%;border:0;display:grid;place-items:center;justify-self:center}
+.ctrl .ui-icon{width:24px;height:24px}
+.ctrl.cancel{background:rgba(255,107,91,.22);color:#ff6b5b}
+.ctrl.peek{background:var(--surface-3);color:var(--text)}
+.ctrl.peek.on{background:var(--text);color:var(--bg)}
+.control-row .ctrl.cancel[hidden]{display:grid!important;visibility:hidden}
+.mic-big{grid-column:2;padding:0;gap:0}
+.mic-symbol{position:relative;width:88px;height:88px;background:#f0564b;color:#fff;box-shadow:0 10px 34px rgba(240,86,75,.32)}
+.mic-symbol .ui-icon{width:34px;height:34px}
+.mic-big.on .mic-symbol{background:var(--surface-2);color:var(--text);box-shadow:none;animation:none}
+.mic-big.busy .mic-symbol,.mic-big:disabled .mic-symbol{background:var(--surface-2);box-shadow:none}
+.ring{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:4}
+.ring-track{stroke:var(--surface-3)}
+.ring-fill{stroke:var(--mint);stroke-linecap:round;stroke-dasharray:289;stroke-dashoffset:289;animation:ring 30s linear forwards}
+@keyframes ring{to{stroke-dashoffset:0}}
+.spinner{width:30px;height:30px;border-radius:50%;border:3px solid var(--surface-3);border-top-color:var(--mint);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mic-label,.mic-caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.heard{margin-top:6px}
+.review-card>.type-answer{margin-top:8px}
+.give-up{align-self:center;font-size:13px;color:var(--muted)}
+/* result */
+.result-stage{gap:14px;min-height:0;padding-top:16px}
+.verdict-arc{position:relative;width:190px;height:104px;display:flex;align-items:flex-end;justify-content:center}
+.verdict-arc svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.verdict-arc path{fill:none;stroke:url(#arc-grad);stroke-width:12;stroke-linecap:round;opacity:.55;filter:drop-shadow(0 0 14px rgba(63,226,155,.55))}
+.verdict-arc.shown path{stroke:#6b7078;filter:none;opacity:.5}
+.verdict-arc strong{position:relative;font-size:30px;font-weight:800;line-height:1.1;color:var(--mint);padding-bottom:8px;text-shadow:0 0 24px rgba(63,226,155,.35)}
+.verdict-arc.shown strong{color:var(--sub);text-shadow:none;font-size:24px}
+.verdict-sub{font-size:13px;color:var(--muted)}
+.result-stage .answer-en{font-size:28px;font-weight:700;line-height:1.35;color:var(--text);margin-top:6px}
+.result-stage .answer-en .miss{color:var(--danger)}
+.prompt-sub{font-size:18px;color:var(--sub)}
+.said{text-align:center}
+.tip{text-align:center;border-top:0;padding-top:0}
+.listen-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pill.listen{height:56px;font-size:16px;background:var(--surface-3)}
+.pill.listen .ui-icon{width:20px;height:20px}

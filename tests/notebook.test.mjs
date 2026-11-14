@@ -100,21 +100,30 @@ test('permission denial shows an explanation without grading',async()=>{
  assert.match(f.element('#content').innerHTML,/마이크 권한이 필요해요/);assert.equal(f.run('attempt'),null);assert.equal(f.uploads,0);
 });
 
-test('pointer release ends a held recording and click cannot start another',async()=>{
- const f=recordingFixture();const button={id:'say-answer',dataset:{},matches:()=>false,setPointerCapture(){},closest:selector=>selector==='#say-answer'?button:null};
- const target={closest:()=>button};
- await f.dispatch('pointerdown',{target,button:0,isPrimary:true,pointerId:7,preventDefault(){}});await settle();
- assert.equal(f.rec.state,'recording');f.run('holdSession.started-=1000');
- await f.dispatch('pointerup',{pointerId:7});await settle();
- assert.equal(f.uploads,1);
- await f.dispatch('click',{target,preventDefault(){}});assert.equal(f.run('holdSession'),null);
+test('tapping the microphone starts recording and tapping again submits once',async()=>{
+ const f=recordingFixture();const button={id:'say-answer',dataset:{},matches:()=>false};const target={closest:()=>button};
+ await f.dispatch('click',{target,preventDefault(){}});await settle();
+ assert.equal(f.rec.state,'recording');assert.equal(f.uploads,0);f.run('holdSession.started-=1000');
+ await f.dispatch('click',{target,preventDefault(){}});await settle();
+ assert.equal(f.uploads,1);assert.equal(f.run('holdSession'),null);
 });
-test('holding Space records once despite key repeats and releasing Space submits',async()=>{
+test('Space toggles recording on and off and ignores key repeats',async()=>{
  const f=recordingFixture();const target={closest:()=>null};
  const event={target,code:'Space',key:' ',preventDefault(){}};
  await f.dispatch('keydown',event);await settle();
- const first=f.rec;await f.dispatch('keydown',{...event,repeat:true});assert.equal(f.rec,first);
- f.run('holdSession.started-=1000');await f.dispatch('keyup',event);await settle();assert.equal(f.uploads,1);
+ const first=f.rec;await f.dispatch('keydown',{...event,repeat:true});assert.equal(f.rec,first);assert.equal(f.rec.state,'recording');
+ f.run('holdSession.started-=1000');await f.dispatch('keydown',event);await settle();assert.equal(f.uploads,1);
+});
+test('cancel button discards the recording without uploading',async()=>{
+ const f=recordingFixture();await f.run("startHoldAnswer('tap')");
+ await f.dispatch('click',{target:{closest:()=>({id:'cancel-answer',dataset:{},matches:()=>false})},preventDefault(){}});await settle();
+ assert.ok(f.stopped>0);assert.equal(f.uploads,0);assert.equal(f.run('holdSession'),null);
+});
+test('eye button peeks at the hidden answer words',async()=>{
+ const f=fixture();f.run("navigate('review')");
+ assert.match(f.element('#content').innerHTML,/word-bar/);assert.doesNotMatch(f.element('#content').innerHTML,/영어로는/);
+ await f.dispatch('click',{target:{closest:()=>({id:'peek-answer',dataset:{},matches:()=>false})},preventDefault(){}});
+ assert.match(f.element('#content').innerHTML,/word-peek/);
 });
 
 test('preparing microphone closes the stream without recording or uploading',async()=>{
@@ -131,16 +140,7 @@ test('hold status preserves microphone button children',async()=>{
  assert.match(button.querySelector('.mic-label').textContent,/녹음 중/);
  f.run("releaseHoldAnswer('pointer:1',true)");
 });
-test('upward swipe cancels; small movement and returning to button submit',async()=>{
- for(const positions of [[300],[480],[300,490]]){
-  const f=recordingFixture();const button={setPointerCapture(){}};
-  await f.dispatch('pointerdown',{target:{closest:()=>button},button:0,pointerId:8,isPrimary:true,clientY:500,preventDefault(){}});
-  await settle();f.run('holdSession.started-=1000');
-  for(const clientY of positions)await f.dispatch('pointermove',{pointerId:8,clientY});
-  await f.dispatch('pointerup',{pointerId:8});await settle();
-  assert.equal(f.uploads,positions.at(-1)===300?0:1);assert.ok(f.stopped>0);
- }
-});
+
 
 test('notebook omits category controls and per-note sharing, while editor still opens',()=>{
  const f=fixture();f.run("navigate('notes')");
