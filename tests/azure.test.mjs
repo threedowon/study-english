@@ -31,3 +31,9 @@ test('missing key and Azure errors become friendly failures',async()=>{
  const audio=await synthesize('Hi',{},{key:'k',region:'eastus',request:async(url,init)=>{assert.match(url,/eastus\.tts\.speech/);assert.equal(init.headers['Content-Type'],'application/ssml+xml');return {ok:true,status:200,arrayBuffer:async()=>new Uint8Array([1,2]).buffer}}});
  assert.deepEqual([...audio],[1,2]);
 });
+import {koreanTip} from '../lib/guide.mjs';
+test('guide tips must be Korean',()=>{
+ assert.equal(koreanTip('弱く言う to は /tə/ に近づけましょう。'),'');
+ assert.equal(koreanTip('way와 purpose에 힘을 주세요.'),'way와 purpose에 힘을 주세요.');
+ assert.equal(koreanTip('Stress the second word.'),'');
+});
