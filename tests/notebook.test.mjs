@@ -42,7 +42,7 @@ test('recommended sentence opens editable English and Korean fields',async()=>{
 test('home opens with progress, weekly reviews and invitation access; recording stays in notebook',()=>{
  const f=fixture();const html=f.element('#content').innerHTML;
  assert.match(html,/연속 복습/);assert.match(html,/이번 주의 작은 꾸준함/);
- assert.match(html,/data-page="together">친구 초대/);
+ assert.doesNotMatch(html,/bottom-banner/);
  assert.match(html,/data-page="notes">오늘 배운 표현 기록하기/);
  assert.doesNotMatch(html,/data-page="talk"|data-page="lesson"|quick-expression-form/);
  f.run("state.history=[{date:dayKey()}];render()");
