@@ -1,3 +1,4 @@
+import {MAX_AUDIO_BYTES,audioType,transcribeAudio} from './lib/transcription.mjs';
 import http from 'node:http';
 import {openSocial} from './lib/social.mjs';
 import {readFile} from 'node:fs/promises';
@@ -52,6 +53,21 @@ return async(req,res)=>{
   }catch(e){return json(res,e.status||500,{error:e.status?e.message:'기록 처리에 실패했어요. 잠시 후 다시 시도해 주세요.'})}
  }
 
+
+ if(path==='/api/transcribe'){
+  if(req.method!=='POST')return json(res,405,{error:'POST 요청이 필요해요.'});
+  if(req.headers.origin!==allowedOrigin)return json(res,403,{error:'웹 화면에서 다시 시도해 주세요.'});
+  if(!social||!user)return json(res,401,{error:'로그인이 필요해요.'});
+  if(req.headers['x-study-user']!==user.id)return json(res,409,{error:'계정이 바뀌었어요. 새로고침해 주세요.'});
+  if(!social.aiEligible(user.id))return json(res,403,{error:'운영자의 공부방에 연결된 계정만 사용할 수 있어요.'});
+  if(busy||Date.now()-lastCall<5000)return json(res,429,{error:'잠시 후 다시 시도해 주세요.'});
+  try{
+   const type=audioType(req.headers['content-type']);let size=0;const chunks=[];
+   for await(const chunk of req){const bytes=Buffer.from(chunk);size+=bytes.length;if(size>MAX_AUDIO_BYTES)return json(res,413,{error:'녹음은 2MB 이내로 보내 주세요.'});chunks.push(bytes)}
+   busy=true;lastCall=Date.now();
+   try{return json(res,200,await transcribeAudio(Buffer.concat(chunks),type,{apiKey,request}))}finally{busy=false}
+  }catch(e){return json(res,e.status||502,{error:e.status?e.message:'음성 인식에 실패했어요.'})}
+ }
  if(path==='/api/status'&&req.method==='GET')return json(res,200,{configured:Boolean(apiKey)});
  if(['/api/organize','/api/vocabulary'].includes(path)){
   const vocabulary=path==='/api/vocabulary';

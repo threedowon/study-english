@@ -1,3 +1,4 @@
+import {MAX_AUDIO_BYTES,audioType,transcribeAudio} from '../lib/transcription.mjs';
 import {socialStore,digest,fail} from './social.mjs';
 const cookie=(token,age=604800)=>`study_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${age}`;
 async function bodyOf(req){
@@ -29,7 +30,7 @@ export default {async fetch(req,env){
   const token=(req.headers.get('Cookie')||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('study_session='))?.slice(14);
   const user=await store.identify(token);
   if(path==='/api/account'&&req.method==='GET')return reply(200,{user:user||null});
-  const body=req.method==='POST'?await bodyOf(req):{};
+  const body=req.method==='POST'&&path!=='/api/transcribe'?await bodyOf(req):{};
   if(['/api/account/login','/api/account/register'].includes(path)&&req.method==='POST'){
    await store.limit('auth:global',200,86400000);
    await store.limit('auth:ip:'+await digest(req.headers.get('CF-Connecting-IP')||'unknown'),20,900000);
@@ -39,6 +40,20 @@ export default {async fetch(req,env){
   }
   if(!user)fail(401,'로그인이 필요해요.');
   const expected=req.headers.get('X-Study-User');if((req.method==='POST'||expected)&&expected!==user.id)fail(409,'계정이 바뀌었어요. 새로고침해 주세요.');
+
+  if(path==='/api/transcribe'&&req.method==='POST'){
+   if(!await store.aiEligible(user.id))fail(403,'운영자의 공부방에 연결된 계정만 사용할 수 있어요.');
+   if(!env.OPENAI_API_KEY)fail(503,'운영자가 AI 키를 연결해야 해요.');
+   const type=audioType(req.headers.get('content-type'));
+   if(Number(req.headers.get('content-length'))>MAX_AUDIO_BYTES)fail(413,'녹음은 2MB 이내로 보내 주세요.');
+   const reader=req.body?.getReader();if(!reader)fail(400,'녹음이 없어요.');
+   let size=0;const chunks=[];
+   while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>MAX_AUDIO_BYTES){await reader.cancel();fail(413,'녹음은 2MB 이내로 보내 주세요.')}chunks.push(value)}
+   if(!size)fail(400,'녹음이 없어요.');
+   await store.limit('ai:global',100,86400000);await store.limit('ai:'+user.id,30,86400000);await store.limit('ai:cooldown:'+user.id,1,5000);
+   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+   return reply(200,await transcribeAudio(bytes,type,{apiKey:env.OPENAI_API_KEY}));
+  }
   if(path==='/api/account/logout'&&req.method==='POST'){await store.logout(token);return reply(200,{ok:true},{'Set-Cookie':cookie('',0)})}
   if(path==='/api/study')return reply(200,await (req.method==='GET'?store.read(user.id):store.save(user.id,body)));
   if(path==='/api/social'&&req.method==='GET')return reply(200,await store.social(user.id));

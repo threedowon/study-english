@@ -69,10 +69,10 @@ if('speechSynthesis' in window){
 }
 
 // ---- Speaking review: Korean prompt only, answer by voice (or typing), graded in the browser ----
-let answerNotice='',answerDraft='';
+let answerNotice='',answerDraft='',answerAudioURL='',holdSession=null;
 let attempt=null,hinted=false,tries=0,answerRec=null,answerFor=null,later=[],editingId=null;
 const SpeechAPI=()=>window.SpeechRecognition||window.webkitSpeechRecognition;
-function resetCard(){answerNotice='';answerDraft='';attempt=null;hinted=false;tries=0;revealed=false}
+function resetCard(){answerNotice='';answerDraft='';if(answerAudioURL){URL.revokeObjectURL(answerAudioURL);answerAudioURL=''}attempt=null;hinted=false;tries=0;revealed=false}
 function reviewQueue(){const list=due();const back=later.map(id=>list.find(n=>n.id===id)).filter(Boolean);return [...list.filter(n=>!later.includes(n.id)),...back]}
 function currentCard(){const q=reviewQueue();const card=q.find(n=>n.id===reviewId)||q[0];if(card&&card.id!==reviewId){reviewId=card.id;resetCard()}return card}
 function intervalLabel(days){return days===0?'오늘 다시':days===1?'내일':days<30?`${days}일 후`:`${Math.round(days/30*10)/10}개월 후`}
@@ -82,74 +82,121 @@ function reviewPage(){
  const current=currentCard();const left=reviewQueue().length;
  const head=`<div class="page-head"><div><span class="eyebrow">SAY IT IN ENGLISH</span><h1>오늘의 복습</h1><p>한글 뜻을 보고 영어로 말해보세요. ${reviewed?`이번에 ${reviewed}개 완료 · `:''}${left}개 남았어요.</p></div></div>`;
  if(!current)return `${head}<section class="review-card"><span style="font-size:50px">✳</span><h2>${state.notes.length?'오늘의 표현을 모두 만났어요!':'첫 표현을 담아볼까요?'}</h2><p class="helper">${state.notes.length?'작은 반복이 쌓여 내 영어가 돼요. 내일 다시 만나요.':'헤이링에서 배운 표현을 저장하면 이곳에서 말하며 복습할 수 있어요.'}</p><button class="button primary" data-add>새 표현 담기 ＋</button> <button class="button" data-bulk>여러 개 붙여넣기</button><br><button class="text-btn" data-page="home">오늘의 영어로 돌아가기</button></section>`;
- const listening=answerRec&&answerFor===current.id;
+ const listening=holdSession?.noteId===current.id&&holdSession.phase==='recording';
+ const processing=holdSession?.noteId===current.id&&holdSession.phase==='processing';
  const prompt=current.meaning?esc(current.meaning):`<span class="helper">한글 뜻이 비어 있어요. 힌트를 보고 말해보세요.</span>`;
  const showHint=(hinted||!current.meaning)&&!revealed?`<p class="hint-line">${esc(hint(current.english))}</p>`:'';
  let body;
  if(!revealed){
   const feedback=attempt?`<div class="attempt ${attempt.score>=CLOSE?'close':'far'}"><strong>${attempt.score>=CLOSE?'거의 다 왔어요!':'아쉬워요, 한 번 더!'}</strong> <span>${Math.round(attempt.score*100)}% 일치 · ${tries}번째 시도</span><p>내 답변: “${esc(attempt.said||'(인식된 말 없음)')}”</p></div>`:'';
-  body=`${showHint}${feedback}<button class="mic-big ${listening?'on':''}" id="say-answer" aria-label="${listening?'말하기 끝내기':'영어로 말해서 맞추기'}"><span>${listening?'■':'🎤'}</span>${listening?'듣고 있어요… 다 말했으면 누르기':attempt?'다시 말하기':'눌러서 영어로 말하기'}</button><p class="heard" id="heard" aria-live="polite">${esc(answerDraft)}</p><p class="helper" id="answer-notice" role="status">${esc(answerNotice)}</p><div class="review-tools">${!hinted&&current.meaning?'<button class="text-btn" id="show-hint">첫 글자 힌트</button>':''}<button class="text-btn" id="reveal">모르겠어요 · 정답 보기</button></div><form id="type-answer" class="type-answer"><input id="typed" value="${esc(answerDraft)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="말하기 어려울 땐 직접 입력" aria-label="직접 입력해서 맞추기"><button class="button">확인</button></form><p class="helper keys">단축키 · Space 말하기 · Enter 다음</p><p class="helper">문장 일치도는 발음 점수가 아니에요. 인식된 문장이 다르면 직접 고쳐 확인할 수 있어요.</p>`;
+  body=`${showHint}${feedback}<button type="button" class="mic-big ${listening?'on':''}" id="say-answer" aria-label="누르고 있는 동안 영어로 말하기" aria-pressed="${!!listening}" ${processing?'disabled':''}><span>${listening?'●':'🎤'}</span>${processing?'음성을 인식하고 있어요…':listening?'녹음 중 · 손을 떼면 완료':'누르고 있는 동안 말하기'}</button><p class="heard" id="heard" aria-live="polite">${esc(answerDraft)}</p><p class="helper" id="answer-notice" role="status">${esc(answerNotice)}</p><div class="review-tools">${!hinted&&current.meaning?'<button class="text-btn" id="show-hint">첫 글자 힌트</button>':''}<button class="text-btn" id="reveal">모르겠어요 · 정답 보기</button></div><form id="type-answer" class="type-answer"><input id="typed" value="${esc(answerDraft)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="말하기 어려울 땐 직접 입력" aria-label="직접 입력해서 맞추기"><button class="button">확인</button></form><p class="helper keys">Space를 누르는 동안 녹음 · 떼면 완료 · Enter 다음</p><p class="helper">녹음을 마치면 음성이 OpenAI로 전송되며 API 사용량이 발생해요. 최대 30초. 문장 일치도는 발음 점수가 아니에요. 인식된 문장이 다르면 직접 고쳐 확인할 수 있어요.</p>`;
  }else{
   const passed=attempt&&attempt.score>=PASS;
   const options=[['again','다시 볼래요'],['good','기억나요'],['easy','쉬워요']];
   const pick=suggested();
   body=`<div class="verdict ${passed?'pass':'fail'}">${passed?`정답이에요! ✓ <small>${Math.round(attempt.score*100)}% 일치</small>`:attempt?'정답과 비교해 보세요':'정답은 이거예요'}</div><div class="review-answer">${attempt?highlighted(attempt.words):esc(current.english)} <button class="icon-btn" data-speak="${esc(current.id)}" aria-label="정답 듣기">♬</button></div>${attempt?`<p class="helper">내 답변: “${esc(attempt.said)}”${passed?'':' · 빨간 밑줄은 빠졌거나 다르게 말한 단어예요.'}</p>`:''}${current.tip?`<p class="helper tip">💡 ${esc(current.tip)}</p>`:''}<div class="review-actions">${options.map(([r,label],i)=>`<button class="button ${r===pick?'primary':''}" data-rate="${r}">${label}<small>${i+1} · ${intervalLabel(nextInterval(current.interval,r))}</small></button>`).join('')}</div>`;
  }
- return `${head}<section class="review-card"><span class="pill">${esc(current.category)}${current.sample?' · 샘플':''}${current.source?` · ${esc(current.source)}`:''}</span><p class="helper">이 말을 영어로 하면?</p><h2 class="prompt-ko">${prompt}</h2>${body}</section>`;
+ return `${head}<section class="review-card"><span class="pill">${esc(current.category)}${current.sample?' · 샘플':''}${current.source?` · ${esc(current.source)}`:''}</span><p class="helper">이 말을 영어로 하면?</p><h2 class="prompt-ko">${prompt}</h2>${body}${answerAudioURL?`<div class="answer-playback"><p class="helper">내 녹음 다시 듣기</p><audio controls src="${esc(answerAudioURL)}"></audio></div>`:''}</section>`;
 }
-function stopAnswer(){if(answerRec){const r=answerRec;answerRec=null;answerFor=null;try{r.abort()}catch{}}}
+function stopAnswer(){
+ const session=holdSession;if(!session)return;
+ session.cancelled=true;session.released=true;holdSession=null;clearTimeout(session.timer);session.controller?.abort();
+ if(session.recorder?.state==='recording')try{session.recorder.stop()}catch{}
+ session.stream?.getTracks().forEach(track=>track.stop());
+}
 function submitAnswer(alternatives){
  const note=state.notes.find(n=>n.id===reviewId);if(!note||revealed)return;
  tries++;attempt=bestGrade(note.english,alternatives.filter(Boolean));
  if(attempt.score>=PASS){revealed=true;render();playEnglish(note.english)}else render();
 }
-function listenAnswer(){
- const notice=text=>{answerNotice=text;const el=$('#answer-notice');if(el)el.textContent=text};
- const API=SpeechAPI();
- if(!API){notice('이 브라우저에서는 음성 인식을 사용할 수 없어요. 사이트를 Safari나 Chrome에서 직접 열거나 아래에 입력해 주세요.');$('#typed')?.focus();return}
- if(answerRec){notice('말한 내용을 정리하고 있어요…');try{answerRec.stop()}catch{}return}
- if(recognition)recognition.stop();if('speechSynthesis' in window)speechSynthesis.cancel();
- const note=currentCard();if(!note)return;
- const rec=new API();rec.lang='en-US';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=5;
- let alternatives=[],failed=false;
- answerDraft='';answerNotice='마이크 연결 중… 준비 안내가 나오면 영어로 말해 주세요.';
- answerRec=rec;answerFor=note.id;
- const active=()=>answerRec===rec&&page==='review'&&reviewId===note.id;
- rec.onstart=()=>{if(active())notice('마이크가 준비됐어요. 영어로 말한 뒤 잠시 기다려 주세요.')};
- rec.onaudiostart=()=>{if(active())notice('마이크가 켜졌어요. 영어로 말해 주세요.')};
- rec.onspeechstart=()=>{if(active())notice('말소리를 감지했어요. 듣고 있어요…')};
- rec.onresult=e=>{
-  if(!active())return;
-  const results=Array.from(e.results);answerDraft=results.map(r=>r[0]?.transcript||'').join(' ').trim();
-  const el=$('#heard');if(el)el.textContent=answerDraft;
-  alternatives=[];
-  if(results.length&&results.every(r=>r.isFinal)){
-   const prefix=results.slice(0,-1).map(r=>r[0].transcript).join(' ');
-   alternatives=Array.from(results.at(-1)).map(a=>`${prefix} ${a.transcript}`.trim()).filter(Boolean);
-  }
- };
- rec.onerror=e=>{
-  if(!active())return;failed=true;
-  const messages={
-   'not-allowed':'마이크 사용이 허용되지 않았어요. 브라우저의 이 사이트 마이크 권한을 확인해 주세요.',
-   'service-not-allowed':'브라우저가 음성 인식 서비스를 허용하지 않았어요. Safari나 Chrome에서 사이트를 직접 열어 주세요.',
-   'audio-capture':'마이크에 연결하지 못했어요. 기기의 입력 마이크와 연결 상태를 확인해 주세요.',
-   'no-speech':'말소리를 인식하지 못했어요. 마이크 준비 안내가 나온 뒤 다시 말해 주세요.',
-   network:'음성 인식 서버에 연결하지 못했어요. 인터넷 연결을 확인하거나 직접 입력해 주세요.',
-   aborted:'음성 입력이 중단됐어요. 다시 시작할 수 있어요.',
-   'language-not-supported':'이 브라우저에서 영어 음성 인식을 사용할 수 없어요. 다른 브라우저에서 열어 주세요.'
-  };
-  notice(messages[e.error]||'음성 인식을 완료하지 못했어요. 다시 말하거나 직접 입력해 주세요.');
- };
- rec.onend=()=>{
-  if(!active())return;answerRec=null;answerFor=null;
-  if(!failed&&alternatives.length){answerNotice='';submitAnswer(alternatives);return}
-  if(answerDraft){answerNotice=(failed?answerNotice+' ':'')+'인식된 문장을 입력칸에 남겼어요. 확인하거나 고친 뒤 확인을 눌러 주세요.'}
-  else if(!failed)answerNotice='인식된 문장이 없어요. 마이크 준비 안내가 나온 뒤 다시 말해 주세요.';
-  render();
- };
- try{render();rec.start()}catch{answerRec=null;answerFor=null;notice('마이크를 시작하지 못했어요. 사이트의 마이크 권한을 확인하거나 직접 입력해 주세요.');render()}
+function setAnswerNotice(text){
+ answerNotice=text;const el=$('#answer-notice');if(el)el.textContent=text;
 }
+function updateHoldButton(text,pressed=false){
+ const button=$('#say-answer');if(!button)return;
+ button.textContent=text;button.classList.toggle('on',pressed);button.setAttribute('aria-pressed',String(pressed));
+}
+async function startHoldAnswer(input,button){
+ if(holdSession||revealed||page!=='review')return;
+ if(!currentUser){setAnswerNotice('OpenAI 음성 인식은 로그인 후 사용할 수 있어요. 위쪽 로그인 버튼을 눌러 주세요.');return}
+ if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){setAnswerNotice('이 브라우저에서 녹음할 수 없어요. Safari나 Chrome에서 사이트를 직접 열어 주세요.');return}
+ const note=currentCard();if(!note)return;
+ if('speechSynthesis' in window)speechSynthesis.cancel();
+ if(answerAudioURL){URL.revokeObjectURL(answerAudioURL);answerAudioURL=''}
+ answerDraft='';const heard=$('#heard');if(heard)heard.textContent='';const typed=$('#typed');if(typed)typed.value='';
+ const session={input,noteId:note.id,owner:currentUser.id,phase:'permission',released:false,cancelled:false,chunks:[]};
+ holdSession=session;setAnswerNotice('마이크 연결 중… 처음에는 권한을 허용한 뒤 다시 눌러 주세요.');
+ updateHoldButton('마이크 연결 중…');
+ try{
+  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+  if(holdSession!==session||session.released||session.cancelled){stream.getTracks().forEach(track=>track.stop());return}
+  session.stream=stream;
+  const type=['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg;codecs=opus'].find(type=>MediaRecorder.isTypeSupported(type));
+  const rec=new MediaRecorder(stream,{...(type?{mimeType:type}:{}),audioBitsPerSecond:64000});session.recorder=rec;
+  rec.ondataavailable=e=>{if(e.data.size)session.chunks.push(e.data)};
+  rec.onerror=()=>{if(holdSession!==session)return;stopAnswer();setAnswerNotice('녹음을 완료하지 못했어요. 다시 누르고 말해 주세요.');render()};
+  rec.onstop=()=>finishHoldAnswer(session);
+  rec.start();session.phase='recording';session.started=Date.now();
+  session.timer=setTimeout(()=>releaseHoldAnswer(session.input),30000);
+  setAnswerNotice('녹음 중이에요. 말이 끝나면 버튼에서 손을 떼세요.');updateHoldButton('● 녹음 중 · 손을 떼면 완료',true);
+ }catch(error){
+  if(holdSession!==session)return;stopAnswer();
+  setAnswerNotice(error.name==='NotAllowedError'?'마이크 권한이 필요해요. 브라우저에서 허용한 뒤 다시 눌러 주세요.':'마이크를 켜지 못했어요. 입력 장치 연결을 확인해 주세요.');render();
+ }
+}
+function releaseHoldAnswer(input,cancel=false){
+ const session=holdSession;if(!session||session.input!==input||session.released)return;
+ session.released=true;clearTimeout(session.timer);
+ if(cancel||session.phase==='permission'){
+  stopAnswer();setAnswerNotice(cancel?'녹음을 취소했어요.':'녹음 준비 전에 손을 뗐어요. 권한을 허용한 뒤 다시 누르고 말해 주세요.');render();return;
+ }
+ if(session.phase!=='recording')return;
+ session.phase='processing';session.duration=Date.now()-session.started;
+ updateHoldButton('음성을 인식하고 있어요…');setAnswerNotice('녹음이 끝났어요. 음성을 인식하고 있어요…');
+ if(session.recorder.state==='recording')session.recorder.stop();
+ session.stream.getTracks().forEach(track=>track.stop());
+}
+async function finishHoldAnswer(session){
+ session.stream?.getTracks().forEach(track=>track.stop());
+ if(holdSession!==session||session.cancelled)return;
+ const active=()=>holdSession===session&&page==='review'&&reviewId===session.noteId&&currentUser?.id===session.owner;
+ const blob=new Blob(session.chunks,{type:session.recorder.mimeType||session.chunks[0]?.type||'audio/webm'});
+ if(!session.released||session.duration<250||!blob.size||blob.size>2*1024*1024){
+  holdSession=null;setAnswerNotice(blob.size>2*1024*1024?'녹음이 너무 커요. 더 짧게 말해 주세요.':'녹음이 너무 짧아요. 버튼을 누른 채 한 문장을 말해 주세요.');render();return;
+ }
+ answerAudioURL=URL.createObjectURL(blob);session.controller=new AbortController();session.timer=setTimeout(()=>session.controller.abort(),50000);
+ render();
+ try{
+  const response=await fetch(apiURL('/api/transcribe'),{method:'POST',credentials:'include',headers:{'Content-Type':blob.type,'X-Study-User':session.owner},body:blob,signal:session.controller.signal});
+  let result;try{result=await response.json()}catch{throw Error('음성 인식 서버에 연결하지 못했어요.')}
+  if(!response.ok)throw Error(result.error||'음성 인식에 실패했어요.');
+  if(!active())return;
+  holdSession=null;answerDraft=typeof result.text==='string'?result.text.trim():'';
+  if(!answerDraft){setAnswerNotice('인식된 말이 없어요. 내 녹음을 듣고 다시 시도해 주세요.');render();return}
+  answerNotice='';submitAnswer([answerDraft]);
+ }catch(error){
+  if(!active())return;holdSession=null;
+  setAnswerNotice(error.name==='AbortError'?'음성 인식 시간이 초과됐어요. 다시 시도해 주세요.':error.message);render();
+ }finally{clearTimeout(session.timer)}
+}
+document.addEventListener('pointerdown',e=>{
+ const b=e.target.closest('#say-answer');if(!b||e.button!==0||e.isPrimary===false||holdSession)return;
+ e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch{}
+ startHoldAnswer('pointer:'+e.pointerId,b);
+});
+document.addEventListener('pointerup',e=>releaseHoldAnswer('pointer:'+e.pointerId));
+document.addEventListener('pointercancel',e=>releaseHoldAnswer('pointer:'+e.pointerId,true));
+document.addEventListener('lostpointercapture',e=>{if(holdSession?.input==='pointer:'+e.pointerId&&!holdSession.released)releaseHoldAnswer('pointer:'+e.pointerId,true)});
+document.addEventListener('contextmenu',e=>{if(e.target.closest('#say-answer'))e.preventDefault()});
+document.addEventListener('keydown',e=>{
+ if(page!=='review'||revealed||e.repeat||e.metaKey||e.ctrlKey||e.altKey||document.querySelector('dialog[open]'))return;
+ const onMic=e.target.closest('#say-answer');
+ if((e.code==='Space'&&(onMic||!e.target.closest('input,textarea,select,button')))||(e.key==='Enter'&&onMic)){e.preventDefault();startHoldAnswer('key:'+e.code,$('#say-answer'))}
+});
+document.addEventListener('keyup',e=>{if(holdSession?.input==='key:'+e.code){e.preventDefault();releaseHoldAnswer('key:'+e.code)}});
+window.addEventListener('blur',()=>{if(holdSession&&!holdSession.released){stopAnswer();answerNotice='녹음이 취소됐어요. 다시 누르고 말해 주세요.';if(page==='review')render()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stopAnswer();if(page==='review'){answerNotice='화면을 나가 녹음을 취소했어요.';render()}}});
+window.addEventListener('pagehide',()=>stopAnswer());
 function rate(r){
  const note=state.notes.find(n=>n.id===reviewId);if(!note||!revealed)return;
  note.interval=nextInterval(note.interval,r);note.due=r==='again'?dayKey():addDays(note.interval);
@@ -161,7 +208,7 @@ function openBulk(){stopAnswer();if($('#add-dialog').open)$('#add-dialog').close
 function updateBulkPreview(){const {items,skipped}=parseBulk($('#bulk-text').value);const dup=items.filter(x=>state.notes.some(n=>n.english.trim().toLowerCase()===x.english.toLowerCase())).length;$('#bulk-preview').innerHTML=items.length||skipped.length?`<strong>${items.length}개 인식</strong>${dup?` · 이미 있는 ${dup}개는 건너뛰어요`:''}${skipped.length?` · 형식이 맞지 않는 ${skipped.length}줄: <em>${esc(skipped.slice(0,2).join(' / '))}${skipped.length>2?' …':''}</em>`:''}<ul>${items.slice(0,4).map(x=>`<li><b>${esc(x.meaning)}</b> → ${esc(x.english)}</li>`).join('')}${items.length>4?'<li>…</li>':''}</ul>`:'한 줄에 하나씩, 영어와 한글 사이에 / 또는 | 또는 탭을 넣어 주세요.'}
 document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
- if(b.id==='say-answer')listenAnswer();
+ if(b.id==='say-answer')e.preventDefault();
  if(b.id==='show-hint'){hinted=true;render()}
  if(b.dataset.edit){const note=state.notes.find(n=>n.id===b.dataset.edit);if(note)openAdd('',note)}
  if(b.matches('[data-bulk]'))openBulk();
@@ -180,8 +227,7 @@ $('#bulk-form').addEventListener('submit',e=>{
 document.addEventListener('keydown',e=>{
  if(page!=='review'||e.metaKey||e.ctrlKey||e.altKey||document.querySelector('dialog[open]'))return;
  if(e.target.closest('input,textarea,select,button'))return;
- if(e.code==='Space'&&!revealed&&currentCard()){e.preventDefault();listenAnswer()}
- else if(e.key==='Enter'&&revealed){e.preventDefault();rate(suggested())}
+ if(e.key==='Enter'&&revealed){e.preventDefault();rate(suggested())}
  else if(revealed&&['1','2','3'].includes(e.key))rate(['again','good','easy'][Number(e.key)-1]);
 });
 
@@ -279,7 +325,7 @@ document.addEventListener('click',async e=>{
  if(action==='copy-invite'){try{await navigator.clipboard.writeText(inviteLink);toast('초대 링크를 복사했어요.')}catch{$('#invite-url').select();toast('선택된 링크를 복사해 주세요.')}return}
  if(action==='dismiss-invite'){pendingInvite='';render();return}
  if(!currentUser)return;
- if(organizing||vocabularyBusy){toast('AI 요청이 끝난 뒤 다시 시도해 주세요.');return}
+ if(organizing||vocabularyBusy||holdSession){toast('AI 요청이 끝난 뒤 다시 시도해 주세요.');return}
  accountBusy=true;
  try{
  await saveChain;

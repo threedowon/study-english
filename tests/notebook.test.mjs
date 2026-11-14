@@ -8,10 +8,10 @@ const source=readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/
 function fixture(){
  const listeners={},elements=new Map();
  function element(key){if(!elements.has(key))elements.set(key,{addEventListener(){},firstChild:{textContent:''},value:'',textContent:'',innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){},setAttribute(){},reset(){},showModal(){this.open=true},close(){this.open=false}});return elements.get(key)}
- const document={querySelector:element,querySelectorAll:()=>[],addEventListener(type,handler){(listeners[type]??=[]).push(handler)}};
- const saved=[];const context={...grading,document,window:{STUDY_CONFIG:{staticOnly:true},addEventListener(){},scrollTo(){}},localStorage:{getItem:()=>null,setItem:(key,value)=>saved.push(JSON.parse(value))},crypto:webcrypto,location:{hash:'',hostname:'localhost'},URLSearchParams,Intl,Date,AbortSignal,structuredClone,setTimeout:()=>0,clearTimeout(){},fetch(){assert.fail('No automatic AI requests')}};
+ const document={querySelector:key=>key==='dialog[open]'?null:element(key),querySelectorAll:()=>[],addEventListener(type,handler){(listeners[type]??=[]).push(handler)}};
+ const saved=[];const context={...grading,document,window:{STUDY_CONFIG:{staticOnly:true},addEventListener(){},scrollTo(){}},localStorage:{getItem:()=>null,setItem:(key,value)=>saved.push(JSON.parse(value))},crypto:webcrypto,location:{hash:'',hostname:'localhost'},URLSearchParams,URL,Blob,AbortController,Intl,Date,AbortSignal,structuredClone,setTimeout:()=>0,clearTimeout(){},fetch(){assert.fail('No automatic AI requests')}};
  vm.createContext(context);vm.runInContext(source,context);
- return {context,element,saved,run:code=>vm.runInContext(code,context),async fire(type,target){for(const fn of listeners[type]||[])await fn({target,preventDefault(){}})}};
+ return {context,element,saved,run:code=>vm.runInContext(code,context),async dispatch(type,event){for(const fn of listeners[type]||[])await fn(event)},async fire(type,target){for(const fn of listeners[type]||[])await fn({target,preventDefault(){}})}};
 }
 test('notebook saves paired input into the due review queue',async()=>{
  const f=fixture();f.run("navigate('notes')");assert.match(f.element('#content').innerHTML,/quick-expression-form/);
@@ -51,35 +51,68 @@ test('home opens with progress, weekly reviews and invitation access; recording 
  f.run("navigate('notes')");assert.match(f.element('#content').innerHTML,/vocabulary-form/);
 });
 
-test('review microphone uses recognition and grades the spoken answer',async()=>{
- const f=fixture();let rec;
- f.context.window.SpeechRecognition=class{constructor(){rec=this}start(){this.started=true}abort(){}};
- f.run("navigate('review');listenAnswer()");
- assert.equal(rec.started,true);assert.equal(rec.lang,'en-US');
- const result=[{transcript:'I came here by van.'}];result.isFinal=true;
- rec.onresult({results:[result]});rec.onend();
- assert.match(f.element('#content').innerHTML,/정답이에요!/);
- assert.match(f.element('#content').innerHTML,/100%/);
+
+function recordingFixture({deferPermission=false}={}){
+ const f=fixture();let stopped=0,uploads=0,resolvePermission,rec;
+ const stream={getTracks:()=>[{stop(){stopped++}}]};
+ const permission=deferPermission?new Promise(resolve=>{resolvePermission=resolve}):Promise.resolve(stream);
+ f.context.navigator={mediaDevices:{getUserMedia:()=>permission}};
+ class Recorder{
+  static isTypeSupported(type){return type==='audio/mp4'}
+  constructor(s,options){this.state='inactive';this.mimeType=options.mimeType;rec=this}
+  start(){this.state='recording'}
+  stop(){this.state='inactive';this.ondataavailable({data:new Blob(['fake audio'],{type:this.mimeType})});this.onstop()}
+ }
+ f.context.window.MediaRecorder=Recorder;f.context.MediaRecorder=Recorder;
+ f.context.fetch=async(url,options)=>{uploads++;assert.equal(url,'/api/transcribe');assert.equal(options.headers['X-Study-User'],'owner');assert.equal(options.body.type,'audio/mp4');return {ok:true,json:async()=>({text:'I came here by van.'})}};
+ f.run("currentUser={id:'owner',name:'Owner'};navigate('review')");
+ return {...f,get rec(){return rec},get stopped(){return stopped},get uploads(){return uploads},resolvePermission:()=>resolvePermission(stream)};
+}
+const settle=()=>new Promise(resolve=>setImmediate(resolve));
+test('holding records locally; release stops microphone and uploads exactly once',async()=>{
+ const f=recordingFixture();await f.run("startHoldAnswer('pointer:1')");
+ assert.equal(f.rec.state,'recording');assert.equal(f.uploads,0);
+ f.run("holdSession.started-=1000;releaseHoldAnswer('pointer:1')");
+ assert.ok(f.stopped>0);
+ f.run("releaseHoldAnswer('pointer:1')");await settle();
+ assert.equal(f.uploads,1);assert.match(f.element('#content').innerHTML,/정답이에요!/);
+ assert.match(f.element('#content').innerHTML,/내 녹음 다시 듣기/);
+});
+test('release before microphone permission resolves never starts recording or uploads',async()=>{
+ const f=recordingFixture({deferPermission:true});const pending=f.run("startHoldAnswer('pointer:1')");
+ f.run("releaseHoldAnswer('pointer:1')");f.resolvePermission();await pending;
+ assert.equal(f.rec,undefined);assert.ok(f.stopped>0);assert.equal(f.uploads,0);
+});
+test('cancel and navigating away stop tracks without uploading',async()=>{
+ for(const action of ["releaseHoldAnswer('pointer:1',true)","navigate('notes')"]){
+  const f=recordingFixture();await f.run("startHoldAnswer('pointer:1')");f.run(action);await settle();
+  assert.ok(f.stopped>0);assert.equal(f.uploads,0);assert.equal(f.run('holdSession'),null);
+ }
+});
+test('a quick tap does not upload, and unrelated pointer release does not stop recording',async()=>{
+ const f=recordingFixture();await f.run("startHoldAnswer('pointer:1')");
+ f.run("releaseHoldAnswer('pointer:2')");assert.equal(f.rec.state,'recording');
+ f.run("releaseHoldAnswer('pointer:1')");await settle();assert.equal(f.uploads,0);
+});
+test('permission denial shows an explanation without grading',async()=>{
+ const f=recordingFixture();f.context.navigator.mediaDevices.getUserMedia=async()=>{throw Object.assign(Error(),{name:'NotAllowedError'})};
+ await f.run("startHoldAnswer('pointer:1')");
+ assert.match(f.element('#content').innerHTML,/마이크 권한이 필요해요/);assert.equal(f.run('attempt'),null);assert.equal(f.uploads,0);
 });
 
-test('interim-only speech remains editable without grading it as a wrong answer',()=>{
- const f=fixture();let rec;f.context.window.SpeechRecognition=class{constructor(){rec=this}start(){}abort(){}};
- f.run("navigate('review');listenAnswer()");
- const result=[{transcript:'I came here'}];result.isFinal=false;
- rec.onresult({results:[result]});rec.onend();
- assert.equal(f.run('attempt'),null);assert.equal(f.run('tries'),0);
- assert.match(f.element('#content').innerHTML,/value="I came here"/);
- assert.match(f.element('#content').innerHTML,/입력칸에 남겼어요/);
+test('pointer release ends a held recording and click cannot start another',async()=>{
+ const f=recordingFixture();const button={id:'say-answer',dataset:{},matches:()=>false,setPointerCapture(){},closest:selector=>selector==='#say-answer'?button:null};
+ const target={closest:()=>button};
+ await f.dispatch('pointerdown',{target,button:0,isPrimary:true,pointerId:7,preventDefault(){}});await settle();
+ assert.equal(f.rec.state,'recording');f.run('holdSession.started-=1000');
+ await f.dispatch('pointerup',{pointerId:7});await settle();
+ assert.equal(f.uploads,1);
+ await f.dispatch('click',{target,preventDefault(){}});assert.equal(f.run('holdSession'),null);
 });
-test('microphone errors stay visible and do not grade empty audio',()=>{
- const f=fixture();let rec;f.context.window.SpeechRecognition=class{constructor(){rec=this}start(){}abort(){}};
- f.run("navigate('review');listenAnswer()");rec.onerror({error:'audio-capture'});rec.onend();
- assert.match(f.element('#content').innerHTML,/마이크에 연결하지 못했어요/);
- assert.equal(f.run('attempt'),null);
-});
-test('late speech callbacks cannot change a different page',()=>{
- const f=fixture();let rec;f.context.window.SpeechRecognition=class{constructor(){rec=this}start(){}abort(){}};
- f.run("navigate('review');listenAnswer();navigate('notes')");
- const result=[{transcript:'stale'}];result.isFinal=true;rec.onresult({results:[result]});rec.onend();
- assert.equal(f.run('answerDraft'),'');assert.match(f.element('#content').innerHTML,/quick-expression-form/);
+test('holding Space records once despite key repeats and releasing Space submits',async()=>{
+ const f=recordingFixture();const target={closest:()=>null};
+ const event={target,code:'Space',key:' ',preventDefault(){}};
+ await f.dispatch('keydown',event);await settle();
+ const first=f.rec;await f.dispatch('keydown',{...event,repeat:true});assert.equal(f.rec,first);
+ f.run('holdSession.started-=1000');await f.dispatch('keyup',event);await settle();assert.equal(f.uploads,1);
 });

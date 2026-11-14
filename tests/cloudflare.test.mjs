@@ -92,3 +92,28 @@ test('vocabulary generates Korean meanings and sentence examples without bypassi
   assert.equal((await worker.fetch(req(),env)).status,429);assert.equal(calls,1);
  }finally{globalThis.fetch=original;db.close()}
 });
+
+test('audio transcription requires auth and ownership and sends only audio to OpenAI',async()=>{
+ const db=database(),env={...envFor(db),OPENAI_API_KEY:'test-only'},original=globalThis.fetch;
+ try{
+  const store=socialStore(db,env),a=await store.register({...signup,setupCode:env.SETUP_CODE});let calls=0;
+  globalThis.fetch=async(url,options)=>{
+   calls++;assert.equal(url,'https://api.openai.com/v1/audio/transcriptions');
+   assert.equal(options.headers.Authorization,'Bearer test-only');
+   assert.equal(options.body.get('model'),'gpt-4o-transcribe');assert.equal(options.body.get('language'),'en');
+   assert.equal(options.body.get('prompt'),null);assert.equal(options.body.get('file').name,'answer.webm');
+   assert.equal(await options.body.get('file').text(),'audio bytes');
+   return Response.json({text:'I came here by van.'});
+  };
+  const req=(headers={},data='audio bytes')=>new Request('https://study.example.com/api/transcribe',{method:'POST',headers:{Origin:env.FRONTEND_ORIGIN,'Content-Type':'audio/webm;codecs=opus',Cookie:`study_session=${a.token}`,'X-Study-User':a.user.id,...headers},body:data});
+  assert.equal((await worker.fetch(req({Cookie:''}),env)).status,401);
+  assert.equal((await worker.fetch(req({'X-Study-User':'wrong'}),env)).status,409);
+  assert.equal((await worker.fetch(req({Origin:'https://evil.example'}),env)).status,403);
+  assert.equal((await worker.fetch(req({'Content-Type':'text/plain'}),env)).status,415);
+  assert.equal((await worker.fetch(req({},new Uint8Array(2*1024*1024+1)),env)).status,413);
+  assert.equal(calls,0);
+  const response=await worker.fetch(req(),env);assert.equal(response.status,200);assert.deepEqual(await response.json(),{text:'I came here by van.'});
+  try{await store.limit('ai:cooldown:'+a.user.id,1,5000)}catch{}
+  assert.equal((await worker.fetch(req(),env)).status,429);assert.equal(calls,1);
+ }finally{globalThis.fetch=original;db.close()}
+});
