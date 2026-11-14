@@ -366,3 +366,4 @@ body[data-page=review] .done-card{margin:auto 0}
 .ring{inset:-5px;width:calc(100% + 10px);height:calc(100% + 10px)}
 .check-btn{width:48px;min-width:48px;padding:0}
 .check-btn .ui-icon{width:22px;height:22px;stroke-width:2.6}
+.editor details input{background:var(--surface-3);margin-top:8px}
