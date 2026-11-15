@@ -65,7 +65,7 @@ function recordingFixture({deferPermission=false}={}){
  }
  f.context.window.MediaRecorder=Recorder;f.context.MediaRecorder=Recorder;
  f.context.fetch=async(url,options)=>{uploads++;assert.equal(url,'/api/transcribe');assert.equal(options.headers['X-Study-User'],'owner');assert.equal(options.body.type,'audio/mp4');return {ok:true,json:async()=>({text:'I came here by van.'})}};
- f.run("currentUser={id:'owner',name:'Owner'};navigate('review')");
+ f.run("currentUser={id:'owner',name:'Owner'};navigate('review');reviewId=state.notes.find(n=>n.english==='I came here by van.').id;render()");
  return {...f,get rec(){return rec},get stopped(){return stopped},get uploads(){return uploads},resolvePermission:()=>resolvePermission(stream)};
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
@@ -154,7 +154,7 @@ test('notebook omits category controls and per-note sharing, while editor still 
  assert.match(f.element('#content').innerHTML,/class="ui-icon"/);
 });
 test('pronunciation scores colour words and show score chips on the result',()=>{
- const f=fixture();f.run("navigate('review')");
+ const f=fixture();f.run("navigate('review');reviewId=state.notes.find(n=>n.english==='I came here by van.').id;render()");
  const pron={text:'I came here by van.',scores:{pron:82,accuracy:85,fluency:90,completeness:100,prosody:76},words:[
   {word:'i',accuracy:98,error:'None',syllables:[{grapheme:'i',accuracy:98}]},
   {word:'came',accuracy:70,error:'None',syllables:[{grapheme:'came',accuracy:70}]},
@@ -165,4 +165,12 @@ test('pronunciation scores colour words and show score chips on the result',()=>
  const html=f.element('#content').innerHTML;
  assert.match(html,/Good!/);assert.match(html,/발음 82점/);assert.match(html,/score-chips/);
  assert.match(html,/word-say fair[^>]*>came/);assert.match(html,/word-say poor[^>]*>here/);assert.match(html,/word-say good[^>]*>van\./);
+});
+test('review order is shuffled but stays fixed within a session',()=>{
+ const f=fixture();f.run("for(let i=0;i<12;i++)state.notes.push({id:'x'+i,english:'Word '+i,meaning:'뜻 '+i,due:'2000-01-01',interval:0,created:i});navigate('review')");
+ const first=f.run("reviewQueue().map(n=>n.id).join(',')");
+ assert.equal(f.run("reviewQueue().map(n=>n.id).join(',')"),first);
+ const sorted=f.run("due().map(n=>n.id).join(',')");
+ let differs=false;for(let k=0;k<5&&!differs;k++){f.run("navigate('home');navigate('review')");differs=f.run("reviewQueue().map(n=>n.id).join(',')")!==sorted}
+ assert.ok(differs);
 });
