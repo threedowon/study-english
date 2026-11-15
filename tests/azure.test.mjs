@@ -37,3 +37,14 @@ test('guide tips must be Korean',()=>{
  assert.equal(koreanTip('way와 purpose에 힘을 주세요.'),'way와 purpose에 힘을 주세요.');
  assert.equal(koreanTip('Stress the second word.'),'');
 });
+import {cleanCheck,checkRequest} from '../lib/check.mjs';
+test('expression check is cleaned and keeps only useful alternatives',()=>{
+ const r=cleanCheck({verdict:'awkward',corrected:'I came here by van.',alternatives:['I came by van.','i came here by vans','I came by van.'],meaning_match:true,note:'by van이 더 자연스러워요.'},'i came here by vans');
+ assert.equal(r.verdict,'awkward');assert.equal(r.corrected,'I came here by van.');
+ assert.deepEqual(r.alternatives,['I came by van.']);
+ assert.equal(r.note,'by van이 더 자연스러워요.');
+ assert.equal(cleanCheck({verdict:'natural',corrected:'',alternatives:[],meaning_match:true,note:'自然です'},'Hi there').corrected,'Hi there');
+ assert.equal(cleanCheck({verdict:'natural',corrected:'',alternatives:[],meaning_match:true,note:'自然です'},'Hi there').note,'');
+ assert.throws(()=>cleanCheck({verdict:'great'},'x'));
+ const req=checkRequest('m','Hello','안녕');assert.equal(JSON.parse(req.input).korean,'안녕');assert.equal(req.text.format.strict,true);
+});

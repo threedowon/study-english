@@ -1,5 +1,6 @@
 import {aiError} from './lib/ai-error.mjs';
 import {guideRequest,cleanGuide} from './lib/guide.mjs';
+import {checkRequest,cleanCheck} from './lib/check.mjs';
 import {MAX_AUDIO_BYTES,audioType,transcribeAudio} from './lib/transcription.mjs';
 import http from 'node:http';
 import {openSocial} from './lib/social.mjs';
@@ -71,6 +72,22 @@ return async(req,res)=>{
   }catch(e){return json(res,e.status||502,{error:e.status?e.message:'음성 인식에 실패했어요.'})}
  }
  if(path==='/api/status'&&req.method==='GET')return json(res,200,{configured:Boolean(apiKey)});
+ if(path==='/api/check'){
+  if(social&&!user)return json(res,401,{error:'로그인 후 사용할 수 있어요.'});
+  if(social&&req.headers['x-study-user']!==user.id)return json(res,409,{error:'계정이 변경됐어요. 새로고침해 주세요.'});
+  if(social&&!social.aiEligible(user.id))return json(res,403,{error:'운영자의 공부방에 연결된 계정만 사용할 수 있어요.'});
+  if(req.method!=='POST')return json(res,405,{error:'POST 요청이 필요합니다.'});
+  if(req.headers.origin!==allowedOrigin||!req.headers['content-type']?.startsWith('application/json'))return json(res,403,{error:'웹 화면에서 다시 시도해 주세요.'});
+  if(!apiKey)return json(res,503,{error:'API 키가 아직 설정되지 않았어요.'});
+  let english,korean;try{let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>6000)return json(res,413,{error:'표현이 너무 길어요.'})}const b=JSON.parse(raw);english=String(b.english||'').trim();korean=String(b.korean||'').trim()}catch{return json(res,400,{error:'올바른 표현을 보내 주세요.'})}
+  if(!english||english.length>500||korean.length>500)return json(res,400,{error:'표현을 1~500자로 보내 주세요.'});
+  try{
+   const response=await request('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(30000),body:JSON.stringify(checkRequest(model,english,korean))});
+   if(!response.ok){const error=await aiError(response);return json(res,error.status,{error:error.message})}
+   const data=await response.json();if(data.status==='incomplete')throw Error('incomplete');
+   return json(res,200,cleanCheck(JSON.parse((data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join('')),english));
+  }catch{return json(res,502,{error:'문장을 확인하지 못했어요.'})}
+ }
  if(path==='/api/guide'){
   if(social&&!user)return json(res,401,{error:'로그인 후 사용할 수 있어요.'});
   if(social&&req.headers['x-study-user']!==user.id)return json(res,409,{error:'계정이 변경됐어요. 새로고침해 주세요.'});
